@@ -1,0 +1,205 @@
+name: Build & Push Images
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+concurrency:
+  group: build-push-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+  # Change to "linux/amd64,linux/arm64" if your cluster has ARM nodes
+  PLATFORMS: linux/amd64
+
+# Pull requests only BUILD (validation). Pushes to master and v* tags BUILD and PUSH.
+# Images: ghcr.io/<owner>/<service>:{latest, sha-xxxxxxx, 1.2.3, 1.2}
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Find every service that has a Dockerfile, split by how it is built
+  # ---------------------------------------------------------------------------
+  discover:
+    name: Discover services
+    runs-on: ubuntu-latest
+    outputs:
+      java: ${{ steps.find.outputs.java }}
+      other: ${{ steps.find.outputs.other }}
+      prefix: ${{ steps.find.outputs.prefix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Find services
+        id: find
+        run: |
+          set -euo pipefail
+          java=$(for d in ts-*/; do d=${d%/}; if [ -f "$d/Dockerfile" ] && [ -f "$d/pom.xml" ]; then echo "$d"; fi; done | jq -R . | jq -sc .)
+          other=$(for d in ts-*/; do d=${d%/}; if [ -f "$d/Dockerfile" ] && [ ! -f "$d/pom.xml" ]; then echo "$d"; fi; done | jq -R . | jq -sc .)
+          {
+            echo "java=$java"
+            echo "other=$other"
+            echo "prefix=${REGISTRY}/${GITHUB_REPOSITORY_OWNER,,}"
+          } >> "$GITHUB_OUTPUT"
+          echo "Java services:  $java"
+          echo "Other services: $other"
+
+  # ---------------------------------------------------------------------------
+  # Java services: Maven builds the jar, then Docker packages it.
+  # The Dockerfiles expect a pre-built Java runtime base image, so each job
+  # builds docker/java-runtime locally and passes it in as JAVA_RUNTIME_IMAGE
+  # (the "docker" buildx driver is required so FROM can see a local image).
+  # ---------------------------------------------------------------------------
+  java:
+    name: java / ${{ matrix.service }}
+    needs: discover
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.discover.outputs.java) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up JDK 8
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "8"
+          cache: maven
+
+      - name: Maven package (tests skipped)
+        env:
+          SERVICE: ${{ matrix.service }}
+        run: mvn -B -ntp -pl "$SERVICE" -am package -Dmaven.test.skip=true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+        with:
+          driver: docker
+
+      - name: Build Java runtime base image
+        uses: docker/build-push-action@v7
+        with:
+          context: docker/java-runtime
+          push: false
+          load: true
+          provenance: false
+          sbom: false
+          tags: train-ticket-java-runtime:local
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ needs.discover.outputs.prefix }}/${{ matrix.service }}
+          tags: |
+            type=ref,event=pr
+            type=sha,format=short
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.service }}
+          push: ${{ github.event_name != 'pull_request' }}
+          provenance: false
+          sbom: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            JAVA_RUNTIME_IMAGE=train-ticket-java-runtime:local
+
+  # ---------------------------------------------------------------------------
+  # Non-Java services (Node, Python, Go, nginx UI): each Dockerfile is
+  # self-contained, so Docker builds them directly with layer caching.
+  # ---------------------------------------------------------------------------
+  other:
+    name: other / ${{ matrix.service }}
+    needs: discover
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.discover.outputs.other) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ needs.discover.outputs.prefix }}/${{ matrix.service }}
+          tags: |
+            type=ref,event=pr
+            type=sha,format=short
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.service }}
+          platforms: ${{ env.PLATFORMS }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  # ---------------------------------------------------------------------------
+  # Single check to require in branch protection (matrix job names are dynamic)
+  # ---------------------------------------------------------------------------
+  build-status:
+    name: Build status
+    needs: [java, other]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any image failed
+        env:
+          JAVA: ${{ needs.java.result }}
+          OTHER: ${{ needs.other.result }}
+        run: |
+          echo "java=$JAVA other=$OTHER"
+          if [ "$JAVA" != "success" ] || [ "$OTHER" != "success" ]; then
+            echo "One or more image builds failed."
+            exit 1
+          fi

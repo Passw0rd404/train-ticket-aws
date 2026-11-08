@@ -1,0 +1,330 @@
+name: Code Quality & Security
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: code-quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# Linters below use `continue-on-error: true` because nobody has reviewed this
+# legacy code yet. Findings still show up as annotations / in the Security tab.
+# Remove `continue-on-error` from a job once its findings are clean to make it blocking.
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Decide which language jobs need to run (manual runs execute everything)
+  # ---------------------------------------------------------------------------
+  changes:
+    name: Detect changed languages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      java: ${{ steps.filter.outputs.java }}
+      python: ${{ steps.filter.outputs.python }}
+      node: ${{ steps.filter.outputs.node }}
+      go: ${{ steps.filter.outputs.go }}
+      docker: ${{ steps.filter.outputs.docker }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Filter paths
+        id: filter
+        if: github.event_name != 'workflow_dispatch'
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            java:
+              - 'pom.xml'
+              - 'ts-*/pom.xml'
+              - 'ts-*/src/**/*.java'
+            python:
+              - 'ts-avatar-service/**'
+              - 'ts-voucher-service/**'
+            node:
+              - 'ts-ticket-office-service/**'
+            go:
+              - 'ts-news-service/**'
+            docker:
+              - '**/Dockerfile'
+
+  # ---------------------------------------------------------------------------
+  # Java (41 Spring Boot services) - PMD static analysis
+  # ---------------------------------------------------------------------------
+  java:
+    name: Java / PMD
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.java == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: PMD
+        uses: pmd/pmd-github-action@v2
+        continue-on-error: true
+        with:
+          rulesets: rulesets/java/quickstart.xml
+          sourcePath: .
+          analyzeModifiedFilesOnly: false
+          createGitHubAnnotations: true
+          uploadSarifReport: true
+
+      - name: Upload PMD SARIF to GitHub Security tab
+        if: always() && hashFiles('pmd-report.sarif') != ''
+        uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4
+        with:
+          sarif_file: pmd-report.sarif
+          category: pmd
+
+  # ---------------------------------------------------------------------------
+  # Python (ts-avatar-service, ts-voucher-service) - Ruff
+  # ---------------------------------------------------------------------------
+  python:
+    name: Python / Ruff
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.python == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Ruff lint
+        uses: astral-sh/ruff-action@v3
+        continue-on-error: true
+        with:
+          src: ts-avatar-service ts-voucher-service
+          args: check --output-format=github
+
+      - name: Ruff format check
+        uses: astral-sh/ruff-action@v3
+        continue-on-error: true
+        with:
+          src: ts-avatar-service ts-voucher-service
+          args: format --check --diff
+
+  # ---------------------------------------------------------------------------
+  # Node.js (ts-ticket-office-service) - Biome lint
+  # ---------------------------------------------------------------------------
+  node:
+    name: Node / Biome
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.node == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Biome
+        uses: biomejs/setup-biome@v2
+
+      - name: Biome lint
+        continue-on-error: true
+        run: >
+          biome lint --reporter=github --no-errors-on-unmatched
+          ts-ticket-office-service/app.js
+          ts-ticket-office-service/bin
+          ts-ticket-office-service/public
+
+  # ---------------------------------------------------------------------------
+  # Go (ts-news-service) - golangci-lint
+  # ---------------------------------------------------------------------------
+  go:
+    name: Go / golangci-lint
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: ts-news-service/go.mod
+          cache-dependency-path: ts-news-service/go.sum
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        continue-on-error: true
+        with:
+          version: latest
+          working-directory: ts-news-service
+
+  # ---------------------------------------------------------------------------
+  # Dockerfiles (all services) - Hadolint
+  # ---------------------------------------------------------------------------
+  docker:
+    name: Dockerfiles / Hadolint
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.docker == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Run Hadolint
+        run: |
+          docker run --rm -v "$PWD:/w" -w /w hadolint/hadolint:v2.12.0 \
+            hadolint --no-fail --format sarif \
+            ts-*/Dockerfile docker/java-runtime/Dockerfile > hadolint.sarif
+
+      - name: Upload Hadolint SARIF to GitHub Security tab
+        if: always() && hashFiles('hadolint.sarif') != ''
+        uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4
+        with:
+          sarif_file: hadolint.sarif
+          category: hadolint
+
+  # ---------------------------------------------------------------------------
+  # Security (always runs, covers every language)
+  # ---------------------------------------------------------------------------
+  semgrep:
+    name: Semgrep
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    container:
+      image: semgrep/semgrep
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Run Semgrep
+        run: |
+          semgrep scan \
+            --config=p/default \
+            --config=p/java \
+            --config=p/python \
+            --config=p/golang \
+            --config=p/nodejs \
+            --config=p/dockerfile \
+            --config=p/owasp-top-ten \
+            --sarif \
+            --output=semgrep.sarif
+        continue-on-error: true
+
+      - name: Upload SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+
+  gitleaks:
+    name: Gitleaks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    container:
+      image: ghcr.io/gitleaks/gitleaks:latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        run: gitleaks detect --source . --verbose --redact --report-format sarif
+          --report-path gitleaks.sarif --exit-code 0
+
+      - name: Upload Gitleaks SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4
+        if: always()
+        with:
+          sarif_file: gitleaks.sarif
+          category: gitleaks
+
+  # Dependency vulnerabilities: reads pom.xml, package-lock.json, requirements.txt, go.mod
+  osv-scanner:
+    name: OSV Scanner
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Run OSV Scanner
+        uses: google/osv-scanner-action/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
+        with:
+          scan-args: |-
+            --recursive
+            --format=sarif
+            --output=osv-results.sarif
+            ./
+        continue-on-error: true
+
+      - name: Check for SARIF file
+        id: check-osv-sarif
+        if: always()
+        run: |
+          if [ -f osv-results.sarif ]; then
+            echo "sarif_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "sarif_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload OSV SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4
+        if: always() && steps.check-osv-sarif.outputs.sarif_exists == 'true'
+        with:
+          sarif_file: osv-results.sarif
+          category: osv-scanner
+
+  codeql:
+    name: CodeQL / ${{ matrix.language }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: java-kotlin
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
+          - language: python
+            build-mode: none
+          - language: go
+            build-mode: autobuild
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      - name: Autobuild
+        if: matrix.build-mode == 'autobuild'
+        uses: github/codeql-action/autobuild@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4
+        with:
+          category: "/language:${{ matrix.language }}"
