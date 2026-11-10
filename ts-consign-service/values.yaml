@@ -1,0 +1,5 @@
+name: ts-consign-service
+port: 16111
+
+mysql:
+  enabled: true

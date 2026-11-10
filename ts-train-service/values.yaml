@@ -1,0 +1,5 @@
+name: ts-train-service
+port: 14567
+
+mysql:
+  enabled: true

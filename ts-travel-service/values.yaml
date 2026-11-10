@@ -1,0 +1,5 @@
+name: ts-travel-service
+port: 12346
+
+mysql:
+  enabled: true

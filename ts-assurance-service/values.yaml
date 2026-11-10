@@ -1,0 +1,5 @@
+name: ts-assurance-service
+port: 18888
+
+mysql:
+  enabled: true

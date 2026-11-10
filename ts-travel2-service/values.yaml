@@ -1,0 +1,5 @@
+name: ts-travel2-service
+port: 16346
+
+mysql:
+  enabled: true

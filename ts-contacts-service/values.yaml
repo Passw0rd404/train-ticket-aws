@@ -1,0 +1,5 @@
+name: ts-contacts-service
+port: 12347
+
+mysql:
+  enabled: true

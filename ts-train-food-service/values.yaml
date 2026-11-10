@@ -1,0 +1,5 @@
+name: ts-train-food-service
+port: 19999
+
+mysql:
+  enabled: true

@@ -1,0 +1,5 @@
+name: ts-preserve-service
+port: 14568
+
+rabbitmq:
+  enabled: true

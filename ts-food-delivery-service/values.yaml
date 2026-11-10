@@ -1,0 +1,5 @@
+name: ts-food-delivery-service
+port: 18957
+
+mysql:
+  enabled: true

@@ -1,0 +1,5 @@
+name: ts-price-service
+port: 16579
+
+mysql:
+  enabled: true

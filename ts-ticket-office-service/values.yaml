@@ -1,0 +1,5 @@
+name: ts-ticket-office-service
+port: 16108
+
+mysql:
+  enabled: true

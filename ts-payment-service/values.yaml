@@ -1,0 +1,5 @@
+name: ts-payment-service
+port: 19001
+
+mysql:
+  enabled: true

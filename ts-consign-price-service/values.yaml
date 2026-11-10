@@ -1,0 +1,5 @@
+name: ts-consign-price-service
+port: 16110
+
+mysql:
+  enabled: true

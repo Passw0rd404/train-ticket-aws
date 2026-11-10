@@ -1,0 +1,8 @@
+name: ts-notification-service
+port: 17853
+
+mysql:
+  enabled: true
+
+rabbitmq:
+  enabled: true

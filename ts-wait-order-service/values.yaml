@@ -1,0 +1,5 @@
+name: ts-wait-order-service
+port: 17525
+
+mysql:
+  enabled: true

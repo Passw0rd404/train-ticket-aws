@@ -1,0 +1,157 @@
+# Every key below is optional except `name` and `port`.
+# Library charts ignore their own values, so defaults live in the templates; this file is documentation.
+# Copy what you need into ts-<something>-service/values.yaml
+
+name: ts-order-service          # REQUIRED. Used for the Deployment, Service DNS name and default image name
+port: 12031                     # REQUIRED. Container port
+# portName: http                # port name (Service targetPort points to it)
+# fullnameOverride: ""
+# containerName: ""             # default: name
+
+replicaCount: 1                 # ignored when autoscaling.enabled
+# revisionHistoryLimit: 3
+# minReadySeconds: 0
+# strategy:
+#   type: RollingUpdate
+#   rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+# terminationGracePeriodSeconds: 30
+# priorityClassName: ""
+
+image:
+  # registry: ghcr.io/passw0rd404   # default: global.image.registry
+  # repository: ts-order-service    # default: name
+  # tag: latest                     # default: global.image.tag, then "latest"
+  # digest: ""                      # sha256:... (wins over tag)
+  # pullPolicy: IfNotPresent        # default: global.image.pullPolicy
+# imagePullSecrets: [ghcr-pull]
+
+# ---- env -------------------------------------------------------------------
+# env:                          # simple KEY: value (merged with global.env)
+#   JAVA_OPTS: "-Xmx512m"
+# envRaw:                       # raw k8s entries, e.g. valueFrom (appended to global.envRaw)
+#   - name: NODE_IP
+#     valueFrom: {fieldRef: {fieldPath: status.hostIP}}
+# envFrom:                      # raw k8s entries (appended to global.envFrom)
+#   - configMapRef: {name: nacos}
+
+# ---- MySQL secret (creates <name>-mysql and adds it to envFrom) -------------
+# Keys are <PREFIX>_MYSQL_HOST/PORT/DATABASE/USER/PASSWORD, PREFIX from the name (ts-order-service -> ORDER).
+# host/port/database/user/password normally come from global.mysql; do not set `enabled` in global.
+mysql:
+  enabled: true
+  # envPrefix: ORDER_MYSQL_
+  # existingSecret: my-secret     # skip creating, just reference an existing Secret
+  # database: ts
+  # user: ts
+  # password: ""                  # pass with --set global.mysql.password=...
+
+# ---- extra secrets / configmaps (named <name>-<key>) -----------------------
+# secrets:
+#   api:
+#     envFrom: true               # also add it to envFrom
+#     type: Opaque
+#     stringData: {API_KEY: abc}
+#     annotations: {}
+# configMaps:
+#   settings:
+#     LOG_LEVEL: info
+# checksumAnnotations: false      # restart pods when configMaps/secrets/mysql values change
+
+# ---- probes (readiness is on by default: tcp, 60s delay) --------------------
+# readinessProbe: {enabled: true, type: tcp, initialDelaySeconds: 60, periodSeconds: 10, timeoutSeconds: 5}
+# livenessProbe:  {enabled: false, type: http, path: /health, initialDelaySeconds: 90}
+# startupProbe:   {enabled: false, type: tcp, failureThreshold: 30}
+# (any probe also accepts `custom:` with a full raw k8s probe spec)
+
+# ---- resources / security / scheduling (each falls back to the same key in global) ----
+# resources:
+#   requests: {cpu: 100m, memory: 300Mi}
+#   limits: {cpu: 500m, memory: 2000Mi}
+# podSecurityContext: {runAsNonRoot: true, runAsUser: 1000, fsGroup: 1000}
+# securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: false, capabilities: {drop: [ALL]}}
+# nodeSelector: {}
+# affinity: {}
+# tolerations: []
+# topologySpreadConstraints: []
+
+# ---- labels / annotations (merged with global.labels / global.annotations) ---
+# labels: {team: backend}
+# annotations: {}               # on every resource
+# podLabels: {}
+# podAnnotations: {}            # e.g. prometheus.io/scrape: "true"
+# deploymentAnnotations: {}
+
+# ---- more container options ------------------------------------------------
+# command: []
+# args: []
+# lifecycle: {}
+# extraPorts: []
+# volumes: []
+# volumeMounts: []
+# initContainers: []
+# sidecars: []
+
+# ---- Service (enabled by default) ------------------------------------------
+# service:
+#   enabled: true
+#   type: ClusterIP               # NodePort for the UI
+#   port: 12031                   # default: port
+#   nodePort: 32677
+#   annotations: {}
+#   labels: {}
+#   extraPorts: []
+
+# ---- ServiceAccount (off by default) ---------------------------------------
+# serviceAccount:
+#   create: true
+#   name: ""
+#   automount: false
+#   annotations: {}
+
+# ---- Ingress (off by default) ----------------------------------------------
+# ingress:
+#   enabled: true
+#   className: nginx
+#   annotations: {}
+#   hosts:
+#     - host: tickets.example.com
+#       paths: [{path: /, pathType: Prefix}]
+#   tls: []
+
+# ---- Autoscaling / PDB (off by default) ------------------------------------
+# autoscaling:
+#   enabled: true
+#   minReplicas: 1
+#   maxReplicas: 3
+#   targetCPUUtilizationPercentage: 80
+#   targetMemoryUtilizationPercentage: 80
+# podDisruptionBudget:
+#   enabled: true
+#   minAvailable: 1               # or maxUnavailable
+
+# ---- shared by all services (put in one common file, -f global.yaml) -------
+global:
+  image:
+    registry: ghcr.io/passw0rd404
+    tag: latest
+    pullPolicy: IfNotPresent
+  # imagePullSecrets: []
+  env:
+    SPRING_MAIN_ALLOW_CIRCULAR_REFERENCES: "true"
+  envRaw:
+    - name: NODE_IP
+      valueFrom: {fieldRef: {fieldPath: status.hostIP}}
+  envFrom:
+    - configMapRef: {name: nacos}
+    - configMapRef: {name: rabbitmq}
+  mysql:
+    host: tsdb-mysql-leader
+    port: 3306
+    database: ts
+    user: ts
+    password: change-me           # better: --set global.mysql.password=$DB_PASSWORD
+  resources:
+    requests: {cpu: 100m, memory: 300Mi}
+    limits: {cpu: 500m, memory: 2000Mi}
+  # labels / annotations / podLabels / podAnnotations / podSecurityContext / securityContext /
+  # nodeSelector / affinity / tolerations / topologySpreadConstraints / priorityClassName also work here

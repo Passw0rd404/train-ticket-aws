@@ -1,0 +1,8 @@
+name: ts-food-service
+port: 18856
+
+mysql:
+  enabled: true
+
+rabbitmq:
+  enabled: true

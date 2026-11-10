@@ -42,7 +42,7 @@ jobs:
         run: |
           set -euo pipefail
           java=$(for d in ts-*/; do d=${d%/}; if [ -f "$d/Dockerfile" ] && [ -f "$d/pom.xml" ]; then echo "$d"; fi; done | jq -R . | jq -sc .)
-          other=$(for d in ts-*/; do d=${d%/}; if [ -f "$d/Dockerfile" ] && [ ! -f "$d/pom.xml" ]; then echo "$d"; fi; done | jq -R . | jq -sc .)
+          other=$(for d in ts-*/; do d=${d%/};    if [ -f "$d/Dockerfile" ] && [ ! -f "$d/pom.xml" ] && [ "$d" != "ts-ui-dashboard" ]; then echo "$d"; fi; done | jq -R . | jq -sc .)
           {
             echo "java=$java"
             echo "other=$other"

@@ -1,0 +1,5 @@
+name: ts-voucher-service
+port: 16101
+
+mysql:
+  enabled: true

@@ -1,0 +1,5 @@
+apiVersion: v2
+name: tt-common
+description: Library chart with the shared Deployment, Service, Secret and optional extras for every Train Ticket service
+type: library
+version: 0.1.0

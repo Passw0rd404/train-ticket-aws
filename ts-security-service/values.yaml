@@ -1,0 +1,5 @@
+name: ts-security-service
+port: 11188
+
+mysql:
+  enabled: true

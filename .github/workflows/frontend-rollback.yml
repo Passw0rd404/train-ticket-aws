@@ -1,0 +1,88 @@
+name: Frontend - Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Full Git commit SHA of the release to restore'
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: frontend-release
+  cancel-in-progress: false
+
+env:
+  VERSION: ${{ inputs.version }}
+  FRONTEND_BUCKET: ${{ vars.FRONTEND_BUCKET }}
+  ARTIFACTS_BUCKET: ${{ vars.ARTIFACTS_BUCKET }}
+  KVS_ARN: ${{ vars.KVS_ARN }}
+  SITE_URL: ${{ vars.SITE_URL }}
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Validate version
+        shell: bash
+        run: |
+          if ! [[ "$VERSION" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "Invalid version: $VERSION"
+            exit 1
+          fi
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/gha-frontend-release
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Restore version if it is missing from the live bucket
+        # Releases are recoverable from the versioned artifact archive even if
+        # their immutable frontend prefix was removed from the live bucket.
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if aws s3api head-object \
+            --bucket "$FRONTEND_BUCKET" \
+            --key "$VERSION/index.html" >/dev/null 2>&1; then
+            echo "Version $VERSION is already present."
+          else
+            if [ -z "${ARTIFACTS_BUCKET:-}" ]; then
+              echo "::error::Version $VERSION is not in the live bucket and ARTIFACTS_BUCKET is not set, cannot restore it."
+              exit 1
+            fi
+
+            echo "Restoring $VERSION from the artifacts bucket..."
+
+            aws s3 cp \
+              "s3://$ARTIFACTS_BUCKET/frontend/frontend-$VERSION.tar.gz" \
+              restore.tar.gz
+
+            mkdir restore_dir
+            tar -xzf restore.tar.gz -C restore_dir
+
+            test -f restore_dir/index.html || {
+              echo "::error::Archive does not contain index.html at its root."
+              exit 1
+            }
+
+            bash .github/scripts/upload-frontend.sh \
+              restore_dir "$FRONTEND_BUCKET" "$VERSION"
+          fi
+
+      - name: Switch live version
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash .github/scripts/switch-frontend.sh "$VERSION"

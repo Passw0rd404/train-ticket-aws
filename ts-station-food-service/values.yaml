@@ -1,0 +1,5 @@
+name: ts-station-food-service
+port: 18855
+
+mysql:
+  enabled: true

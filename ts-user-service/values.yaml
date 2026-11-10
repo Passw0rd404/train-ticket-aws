@@ -1,0 +1,5 @@
+name: ts-user-service
+port: 12342
+
+mysql:
+  enabled: true

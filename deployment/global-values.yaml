@@ -1,0 +1,35 @@
+# Shared by every service. Install a service with:
+#   helm upgrade --install <svc> <chart> -n <ns> \
+#     -f deployment/global-values.yaml -f <svc>/values.yaml \
+#     --set global.mysql.password=$DB_PASSWORD
+global:
+  image:
+    registry: ghcr.io/passw0rd404
+    tag: latest
+    pullPolicy: IfNotPresent
+  env:
+    SPRING_MAIN_ALLOW_CIRCULAR_REFERENCES: "true"
+  envRaw:
+    - name: NODE_IP
+      valueFrom:
+        fieldRef:
+          fieldPath: status.hostIP
+  envFrom:
+    - configMapRef:
+        name: nacos
+  mysql:
+    host: tsdb-mysql-leader
+    port: 3306
+    database: ts
+    user: ts
+    # password: set with --set global.mysql.password=...  (never commit it)
+  rabbitmq:
+    configMapName: rabbitmq   # ConfigMap created by the rabbitmq chart (key: rabbitmq_host)
+    # host: rabbitmq          # alternative: set rabbitmq_host directly instead of the ConfigMap
+  resources:
+    requests:
+      cpu: 100m
+      memory: 300Mi
+    limits:
+      cpu: 500m
+      memory: 2000Mi

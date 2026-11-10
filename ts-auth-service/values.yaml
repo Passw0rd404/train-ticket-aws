@@ -1,0 +1,5 @@
+name: ts-auth-service
+port: 12340
+
+mysql:
+  enabled: true

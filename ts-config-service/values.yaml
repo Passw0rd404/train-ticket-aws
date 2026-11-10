@@ -1,0 +1,5 @@
+name: ts-config-service
+port: 15679
+
+mysql:
+  enabled: true

@@ -1,0 +1,5 @@
+name: ts-station-service
+port: 12345
+
+mysql:
+  enabled: true

@@ -1,0 +1,6 @@
+dependencies:
+- name: tt-common
+  repository: file://../..
+  version: 0.1.0
+digest: sha256:52c80aeeb1601c01e7962eea2dba1fdc3963593d9755afb2af0db61dc77a209c
+generated: "2026-11-10T09:38:43.335735527+02:00"

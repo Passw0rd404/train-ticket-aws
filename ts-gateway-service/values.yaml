@@ -1,0 +1,6 @@
+name: ts-gateway-service
+port: 18888
+
+service:
+  type: NodePort
+  nodePort: 30467

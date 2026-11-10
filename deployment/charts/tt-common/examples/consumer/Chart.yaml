@@ -1,0 +1,9 @@
+apiVersion: v2
+name: tt-common-example
+description: Throwaway chart used only to render and test tt-common
+type: application
+version: 0.1.0
+dependencies:
+  - name: tt-common
+    version: 0.1.0
+    repository: file://../..

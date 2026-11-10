@@ -1,0 +1,5 @@
+name: ts-inside-payment-service
+port: 18673
+
+mysql:
+  enabled: true

@@ -1,0 +1,5 @@
+name: ts-route-service
+port: 11178
+
+mysql:
+  enabled: true
