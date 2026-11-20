@@ -1,61 +1,71 @@
-name: Frontend - Release (S3 + CloudFront)
+name: Frontend - Release (Cloudflare Pages)
 
 on:
   workflow_dispatch:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
-  group: frontend-release
+  group: frontend-deploy
   cancel-in-progress: false
-
-env:
-  VERSION: ${{ github.sha }}
-  FRONTEND_DIR: ts-ui-dashboard/static
-  # Set these in Settings -> Secrets and variables -> Actions -> Variables
-  FRONTEND_BUCKET: ${{ vars.FRONTEND_BUCKET }}
-  ARTIFACTS_BUCKET: ${{ vars.ARTIFACTS_BUCKET }} # optional backup bucket
-  KVS_ARN: ${{ vars.KVS_ARN }}
-  SITE_URL: ${{ vars.SITE_URL }}
 
 jobs:
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      # The UI is plain static files (HTML, CSS, JS): there is nothing to build.
-      - name: Check frontend files
-        run: test -f "$FRONTEND_DIR/index.html"
-
-      # Lets the switch step confirm the new build is really being served
-      - name: Stamp version
-        run: echo "$VERSION" > "$FRONTEND_DIR/version.txt"
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/gha-frontend-release
-          aws-region: ${{ vars.AWS_REGION }}
-
-      # Backup first: if anything below fails, the release is still recoverable
-      - name: Archive build to artifacts bucket
-        if: env.ARTIFACTS_BUCKET != ''
+      - name: Check SITE_URL is set
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
         run: |
-          tar -czf frontend-artifact.tar.gz -C "$FRONTEND_DIR" .
-          aws s3 cp frontend-artifact.tar.gz \
-            "s3://$ARTIFACTS_BUCKET/frontend/frontend-$VERSION.tar.gz"
+          if [ -z "$SITE_URL" ]; then
+            echo "::error::Set the SITE_URL repository variable (for example https://example.com)."
+            exit 1
+          fi
 
-      - name: Upload to versioned prefix
-        # Keep each build immutable so the active version can be switched or
-        # rolled back without redeploying anything.
-        run: bash .github/scripts/upload-frontend.sh "$FRONTEND_DIR" "$FRONTEND_BUCKET" "$VERSION"
+      - name: Checkout latest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
 
-      - name: Switch live version
-        # The CloudFront function reads this pointer to select the active build.
-        run: bash .github/scripts/switch-frontend.sh "$VERSION"
+      - name: Check frontend files
+        run: test -f ts-ui-dashboard/static/index.html
+
+      # The stamp lets the last step confirm the new build is really being served
+      - name: Stamp version
+        id: stamp
+        run: |
+          SHA=$(git rev-parse HEAD)
+          echo "$SHA" > ts-ui-dashboard/static/version.txt
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          command: >-
+            pages deploy ts-ui-dashboard/static
+            --project-name=${{ vars.CF_PAGES_PROJECT }}
+            --branch=main
+            --commit-hash=${{ steps.stamp.outputs.sha }}
+            --commit-dirty=true
+
+      - name: Verify the new version is live
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+          EXPECTED: ${{ steps.stamp.outputs.sha }}
+        run: |
+          SITE_URL="${SITE_URL%/}"
+          LIVE=""
+          for _ in $(seq 1 60); do
+            LIVE=$(curl -fsS -H "Cache-Control: no-cache" "$SITE_URL/version.txt?t=$(date +%s)" 2>/dev/null | tr -d '[:space:]' || true)
+            if [ "$LIVE" = "$EXPECTED" ]; then
+              echo "Live version is now $EXPECTED"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::Site did not report $EXPECTED within 300s (last saw: '${LIVE:-nothing}')"
+          exit 1

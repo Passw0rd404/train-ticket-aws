@@ -1,0 +1,127 @@
+name: Service checks (non-Java)
+
+# Syntax checks and dependency audits for the Python, Node and Go services.
+# Linting, SAST, secret scanning, CodeQL and Dockerfile checks live in code-quality.yml.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: service-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Python: avatar (Flask) and voucher (Tornado)
+  # ---------------------------------------------------------------------------
+  python:
+    name: python / ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [ts-avatar-service, ts-voucher-service]
+    defaults:
+      run:
+        working-directory: ${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ${{ matrix.service }}/requirements.txt
+
+      - name: Syntax check
+        run: python -m compileall -q .
+
+      - name: Dependency audit (pip-audit)
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt
+
+  # ---------------------------------------------------------------------------
+  # Node: ticket office (Express)
+  # ---------------------------------------------------------------------------
+  node:
+    name: node / ts-ticket-office-service
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ts-ticket-office-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: ts-ticket-office-service/package-lock.json
+
+      - name: Install (lockfile only)
+        run: npm ci
+
+      - name: Syntax check
+        run: find . -name '*.js' -not -path './node_modules/*' -print0 | xargs -0 -n1 node --check
+
+      - name: Dependency audit (high and above, prod deps)
+        run: npm audit --omit=dev --audit-level=high
+
+  # ---------------------------------------------------------------------------
+  # Go: news service
+  # ---------------------------------------------------------------------------
+  go:
+    name: go / ts-news-service
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ts-news-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: ts-news-service/go.mod
+          cache-dependency-path: ts-news-service/go.sum
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vulnerability check (govulncheck)
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+  # ---------------------------------------------------------------------------
+  # Newly added vulnerable dependencies in a PR
+  # ---------------------------------------------------------------------------
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
+  # Single check to require in branch protection
+  ci-status:
+    name: Service checks status
+    needs: [python, node, go, dependency-review]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any job failed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "results: $RESULTS"
+          case "$RESULTS" in *failure*|*cancelled*) exit 1 ;; esac

@@ -1,4 +1,4 @@
-{{- define "tt-common.deployment" -}}
+{{- define "tt-common.rollout" -}}
 {{- $g := .Values.global | default dict -}}
 {{- $gi := $g.image | default dict -}}
 {{- $i := .Values.image | default dict -}}
@@ -7,12 +7,18 @@
 {{- $name := include "tt-common.fullname" . -}}
 {{- $port := include "tt-common.port" . | int -}}
 {{- $portName := .Values.portName | default "http" -}}
+{{- $canary := (.Values.rollout | default dict).canary | default ($g.rollout | default dict).canary | default dict -}}
+{{- $strategy := deepCopy $canary -}}
+{{- with (include "tt-common.canaryService" .) -}}
+{{- $_ := set $strategy "stableService" $name -}}
+{{- $_ := set $strategy "canaryService" . -}}
+{{- end -}}
 {{- $pull := concat ($g.imagePullSecrets | default list) (.Values.imagePullSecrets | default list) }}
 ---
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
 metadata:
-  {{- include "tt-common.metadata" (dict "ctx" . "name" $name "annotations" .Values.deploymentAnnotations) | nindent 2 }}
+  {{- include "tt-common.metadata" (dict "ctx" . "name" $name "annotations" .Values.rolloutAnnotations) | nindent 2 }}
 spec:
   {{- if not $hpa.enabled }}
   replicas: {{ if hasKey .Values "replicaCount" }}{{ .Values.replicaCount }}{{ else }}1{{ end }}
@@ -23,10 +29,12 @@ spec:
   {{- with .Values.minReadySeconds }}
   minReadySeconds: {{ . }}
   {{- end }}
-  {{- with .Values.strategy }}
   strategy:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
+    canary:
+      {{- if $strategy }}
+      {{- toYaml $strategy | nindent 6 }}
+      {{- else }} {}
+      {{- end }}
   selector:
     matchLabels:
       {{- include "tt-common.selectorLabels" . | nindent 6 }}

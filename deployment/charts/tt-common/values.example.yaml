@@ -11,9 +11,6 @@ port: 12031                     # REQUIRED. Container port
 replicaCount: 1                 # ignored when autoscaling.enabled
 # revisionHistoryLimit: 3
 # minReadySeconds: 0
-# strategy:
-#   type: RollingUpdate
-#   rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
 # terminationGracePeriodSeconds: 30
 # priorityClassName: ""
 
@@ -79,7 +76,7 @@ mysql:
 # annotations: {}               # on every resource
 # podLabels: {}
 # podAnnotations: {}            # e.g. prometheus.io/scrape: "true"
-# deploymentAnnotations: {}
+# rolloutAnnotations: {}
 
 # ---- more container options ------------------------------------------------
 # command: []
@@ -155,3 +152,23 @@ global:
     limits: {cpu: 500m, memory: 2000Mi}
   # labels / annotations / podLabels / podAnnotations / podSecurityContext / securityContext /
   # nodeSelector / affinity / tolerations / topologySpreadConstraints / priorityClassName also work here
+
+# ---- Argo Rollouts (the workload is a Rollout, not a Deployment) -----------
+# Every service gets 2 Services: <name> (stable, the DNS name other services call) and <name>-canary.
+# With no steps it behaves like a normal rolling update.
+# rollout:
+#   canary:                       # any Argo Rollouts canary field works here (also under global.rollout)
+#     maxSurge: 25%
+#     maxUnavailable: 0
+#     steps:
+#       - setWeight: 20
+#       - pause: {duration: 2m}
+#       - setWeight: 50
+#       - pause: {}
+#     # trafficRouting: {}        # needs an Ingress controller or mesh that Argo Rollouts supports
+#     # analysis: {}
+# service:
+#   canary:
+#     enabled: true               # false = do not create the <name>-canary Service
+#     labels: {}
+#     annotations: {}

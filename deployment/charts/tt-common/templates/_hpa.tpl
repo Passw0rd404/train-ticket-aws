@@ -9,8 +9,8 @@ metadata:
   {{- include "tt-common.metadata" (dict "ctx" . "name" $name) | nindent 2 }}
 spec:
   scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
+    apiVersion: argoproj.io/v1alpha1
+    kind: Rollout
     name: {{ $name }}
   minReplicas: {{ $hpa.minReplicas | default 1 }}
   maxReplicas: {{ $hpa.maxReplicas | default 3 }}

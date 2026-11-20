@@ -1,88 +1,86 @@
-name: Frontend - Rollback
+name: Frontend - Rollback (Cloudflare Pages)
 
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Full Git commit SHA of the release to restore'
+      sha:
+        description: 'Git commit SHA of the frontend version to restore'
         type: string
         required: true
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
-  group: frontend-release
+  group: frontend-deploy
   cancel-in-progress: false
-
-env:
-  VERSION: ${{ inputs.version }}
-  FRONTEND_BUCKET: ${{ vars.FRONTEND_BUCKET }}
-  ARTIFACTS_BUCKET: ${{ vars.ARTIFACTS_BUCKET }}
-  KVS_ARN: ${{ vars.KVS_ARN }}
-  SITE_URL: ${{ vars.SITE_URL }}
 
 jobs:
   rollback:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      - name: Validate version
-        shell: bash
+      - name: Check SITE_URL is set
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
         run: |
-          if ! [[ "$VERSION" =~ ^[A-Za-z0-9._-]+$ ]]; then
-            echo "Invalid version: $VERSION"
+          if [ -z "$SITE_URL" ]; then
+            echo "::error::Set the SITE_URL repository variable (for example https://example.com)."
             exit 1
           fi
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/gha-frontend-release
-          aws-region: ${{ vars.AWS_REGION }}
-
-      - name: Restore version if it is missing from the live bucket
-        # Releases are recoverable from the versioned artifact archive even if
-        # their immutable frontend prefix was removed from the live bucket.
-        shell: bash
+      - name: Validate SHA
+        env:
+          SHA: ${{ inputs.sha }}
         run: |
-          set -euo pipefail
-
-          if aws s3api head-object \
-            --bucket "$FRONTEND_BUCKET" \
-            --key "$VERSION/index.html" >/dev/null 2>&1; then
-            echo "Version $VERSION is already present."
-          else
-            if [ -z "${ARTIFACTS_BUCKET:-}" ]; then
-              echo "::error::Version $VERSION is not in the live bucket and ARTIFACTS_BUCKET is not set, cannot restore it."
-              exit 1
-            fi
-
-            echo "Restoring $VERSION from the artifacts bucket..."
-
-            aws s3 cp \
-              "s3://$ARTIFACTS_BUCKET/frontend/frontend-$VERSION.tar.gz" \
-              restore.tar.gz
-
-            mkdir restore_dir
-            tar -xzf restore.tar.gz -C restore_dir
-
-            test -f restore_dir/index.html || {
-              echo "::error::Archive does not contain index.html at its root."
-              exit 1
-            }
-
-            bash .github/scripts/upload-frontend.sh \
-              restore_dir "$FRONTEND_BUCKET" "$VERSION"
+          if ! [[ "$SHA" =~ ^[0-9a-fA-F]{7,40}$ ]]; then
+            echo "::error::Invalid commit SHA: $SHA"
+            exit 1
           fi
 
-      - name: Switch live version
-        shell: bash
+      - name: Checkout the requested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.sha }}
+          fetch-depth: 0
+
+      - name: Check frontend files
+        run: test -f ts-ui-dashboard/static/index.html
+
+      # The stamp lets the last step confirm the restored build is really being served
+      - name: Stamp version
+        id: stamp
         run: |
-          set -euo pipefail
-          bash .github/scripts/switch-frontend.sh "$VERSION"
+          SHA=$(git rev-parse HEAD)
+          echo "$SHA" > ts-ui-dashboard/static/version.txt
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          command: >-
+            pages deploy ts-ui-dashboard/static
+            --project-name=${{ vars.CF_PAGES_PROJECT }}
+            --branch=main
+            --commit-hash=${{ steps.stamp.outputs.sha }}
+            --commit-dirty=true
+
+      - name: Verify the restored version is live
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+          EXPECTED: ${{ steps.stamp.outputs.sha }}
+        run: |
+          SITE_URL="${SITE_URL%/}"
+          LIVE=""
+          for _ in $(seq 1 60); do
+            LIVE=$(curl -fsS -H "Cache-Control: no-cache" "$SITE_URL/version.txt?t=$(date +%s)" 2>/dev/null | tr -d '[:space:]' || true)
+            if [ "$LIVE" = "$EXPECTED" ]; then
+              echo "Live version is now $EXPECTED"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::Site did not report $EXPECTED within 300s (last saw: '${LIVE:-nothing}')"
+          exit 1

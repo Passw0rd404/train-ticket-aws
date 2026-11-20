@@ -34,6 +34,7 @@ jobs:
       node: ${{ steps.filter.outputs.node }}
       go: ${{ steps.filter.outputs.go }}
       docker: ${{ steps.filter.outputs.docker }}
+      frontend: ${{ steps.filter.outputs.frontend }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -57,6 +58,9 @@ jobs:
               - 'ts-news-service/**'
             docker:
               - '**/Dockerfile'
+            frontend:
+              - 'ts-ui-dashboard/static/**'
+              - 'functions/**'
 
   # ---------------------------------------------------------------------------
   # Java (41 Spring Boot services) - PMD static analysis
@@ -165,6 +169,95 @@ jobs:
           working-directory: ts-news-service
 
   # ---------------------------------------------------------------------------
+  # Frontend (ts-ui-dashboard/static, plain HTML/CSS/JS) - syntax, lint, links, vendored libs
+  # ---------------------------------------------------------------------------
+  frontend:
+    name: Frontend / static checks
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    env:
+      STATIC: ts-ui-dashboard/static
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # Our own JS only: vendored libraries are checked by retire.js below
+      - name: Collect own JS files
+        run: |
+          find "$STATIC" -name '*.js' \
+            ! -name '*.min.js' ! -name 'angular.js' ! -name 'vue.js' \
+            ! -name 'bootstrap.js' ! -name 'npm.js' ! -name 'iscroll.js' \
+            ! -name 'vue-upload-component.js' ! -name 'jquery*' \
+            | sort > own-js.txt
+          if [ -d functions ]; then find functions -name '*.js' >> own-js.txt; fi
+          wc -l own-js.txt
+
+      - name: JS syntax check
+        run: xargs -a own-js.txt -d '\n' -n1 node --check
+
+      - name: Setup Biome
+        uses: biomejs/setup-biome@v2
+
+      - name: Biome lint
+        continue-on-error: true
+        run: xargs -a own-js.txt -d '\n' biome lint --reporter=github --no-errors-on-unmatched
+
+      - name: HTML lint (htmlhint)
+        continue-on-error: true
+        run: npx --yes htmlhint@1 "$STATIC/*.html"
+
+      - name: Check local script, style, image and page references
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          import os, re, sys, glob
+          from html.parser import HTMLParser
+          from urllib.parse import unquote
+
+          root = os.environ["STATIC"]
+          missing = 0
+
+          def check(page, ref):
+              ref = ref.split("#")[0].split("?")[0].strip()
+              if not ref or re.match(r"^(https?:|//|data:|mailto:|javascript:|tel:)", ref) or "{" in ref or "$" in ref:
+                  return 0
+              base = root if ref.startswith("/") else os.path.dirname(page)
+              path = os.path.normpath(os.path.join(base, unquote(ref.lstrip("/"))))
+              if os.path.exists(path):
+                  return 0
+              print(f"::warning file={page}::missing file: {ref}")
+              return 1
+
+          class Refs(HTMLParser):
+              def __init__(self, page):
+                  super().__init__()
+                  self.page = page
+                  self.missing = 0
+              def handle_starttag(self, tag, attrs):
+                  a = dict(attrs)
+                  if tag in ("script", "img", "source") and a.get("src"):
+                      self.missing += check(self.page, a["src"])
+                  elif tag == "link" and a.get("href"):
+                      self.missing += check(self.page, a["href"])
+                  elif tag == "a" and (a.get("href") or "").split("#")[0].split("?")[0].endswith(".html"):
+                      self.missing += check(self.page, a["href"])
+
+          for page in sorted(glob.glob(root + "/**/*.html", recursive=True)):
+              p = Refs(page)
+              p.feed(open(page, encoding="utf-8", errors="ignore").read())
+              missing += p.missing
+
+          print(f"{missing} broken reference(s)")
+          sys.exit(1 if missing else 0)
+          PY
+
+      # OSV cannot see libraries copied into the repo (jQuery, Angular, Vue, Bootstrap...)
+      - name: Vulnerable vendored libraries (retire.js)
+        continue-on-error: true
+        run: npx --yes retire@5 --path "$STATIC" --severity high --exitwith 1
+
+  # ---------------------------------------------------------------------------
   # Dockerfiles (all services) - Hadolint
   # ---------------------------------------------------------------------------
   docker:
@@ -215,6 +308,7 @@ jobs:
             --config=p/python \
             --config=p/golang \
             --config=p/nodejs \
+            --config=p/javascript \
             --config=p/dockerfile \
             --config=p/owasp-top-ten \
             --sarif \

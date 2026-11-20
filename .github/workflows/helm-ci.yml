@@ -1,0 +1,214 @@
+name: Helm CI
+
+on:
+  pull_request:
+    paths:
+      - "deployment/charts/**"
+      - "deployment/global-values.yaml"
+      - "ts-*/values.yaml"
+      - ".github/workflows/helm-ci.yml"
+  push:
+    branches: [main]
+    tags: ["chart-v*.*.*"]
+    paths:
+      - "deployment/charts/**"
+      - "deployment/global-values.yaml"
+      - "ts-*/values.yaml"
+      - ".github/workflows/helm-ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: helm-ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  HELM_VERSION: v3.17.3
+  KUBECONFORM_VERSION: v0.6.7
+  # Match your EKS version
+  K8S_VERSION: 1.31.0
+  CHART_DIR: deployment/charts/tt-common
+  CONSUMER_DIR: deployment/charts/tt-common/examples/consumer
+  GLOBAL_VALUES: deployment/global-values.yaml
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Lint the library chart and check that its version moves when it changes
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Lint library chart
+        run: helm lint --strict "$CHART_DIR"
+
+      - name: Require a version bump when the chart changes
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          BASE="origin/${BASE_REF}"
+          if git diff --quiet "$BASE"...HEAD -- "$CHART_DIR" ":!$CHART_DIR/examples" ":!$CHART_DIR/README.MD"; then
+            echo "Chart templates unchanged."
+            exit 0
+          fi
+          OLD=$(git show "$BASE:$CHART_DIR/Chart.yaml" | grep '^version:' | awk '{print $2}')
+          NEW=$(grep '^version:' "$CHART_DIR/Chart.yaml" | awk '{print $2}')
+          echo "base=$OLD this=$NEW"
+          if [ "$OLD" = "$NEW" ]; then
+            echo "::error::The chart changed but its version in Chart.yaml did not. Bump it."
+            exit 1
+          fi
+
+  # ---------------------------------------------------------------------------
+  # A library chart cannot be rendered on its own, so render it through the
+  # example consumer chart once per service values file, then validate and scan.
+  # ---------------------------------------------------------------------------
+  render:
+    name: Render, validate and scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Install kubeconform
+        run: |
+          curl -sSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
+            | tar xz -C /usr/local/bin kubeconform
+
+      - name: Build consumer chart dependencies
+        run: helm dependency update "$CONSUMER_DIR"
+
+      - name: Render every service
+        run: |
+          set -euo pipefail
+          mkdir -p rendered
+          count=0
+          for f in ts-*/values.yaml; do
+            svc=$(dirname "$f")
+            echo "::group::$svc"
+            helm template "$svc" "$CONSUMER_DIR" -f "$GLOBAL_VALUES" -f "$f" > "rendered/$svc.yaml"
+            helm lint --strict "$CONSUMER_DIR" -f "$GLOBAL_VALUES" -f "$f"
+            echo "::endgroup::"
+            count=$((count + 1))
+          done
+          echo "Rendered $count services."
+
+      - name: Validate against Kubernetes schemas (kubeconform)
+        run: |
+          kubeconform -strict -summary -ignore-missing-schemas \
+            -kubernetes-version "$K8S_VERSION" \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            rendered/
+
+      - name: Misconfiguration scan (Trivy)
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: config
+          scan-ref: rendered
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          format: table
+
+      - name: Keep rendered manifests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rendered-manifests
+          path: rendered/
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # Publish the library chart to GHCR as an OCI artifact and sign it.
+  # Runs only for tags like chart-v0.2.0, and the tag must match Chart.yaml.
+  # ---------------------------------------------------------------------------
+  publish:
+    name: Publish chart to GHCR
+    if: startsWith(github.ref, 'refs/tags/chart-v')
+    needs: [lint, render]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Check the tag matches the chart version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#chart-v}"
+          CHART_VERSION=$(grep '^version:' "$CHART_DIR/Chart.yaml" | awk '{print $2}')
+          if [ "$TAG_VERSION" != "$CHART_VERSION" ]; then
+            echo "::error::Tag says $TAG_VERSION but Chart.yaml says $CHART_VERSION."
+            exit 1
+          fi
+
+      - name: Package
+        run: helm package "$CHART_DIR" --destination dist
+
+      - name: Log in to GHCR
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: echo "$TOKEN" | helm registry login ghcr.io --username "$ACTOR" --password-stdin
+
+      - name: Push
+        id: push
+        run: |
+          set -euo pipefail
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}"
+          helm push dist/*.tgz "oci://ghcr.io/${OWNER}/charts" 2>&1 | tee push.log
+          DIGEST=$(grep -Po '(?<=Digest: )sha256:[a-f0-9]+' push.log)
+          NAME=$(grep '^name:' "$CHART_DIR/Chart.yaml" | awk '{print $2}')
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          echo "ref=ghcr.io/${OWNER}/charts/${NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign the chart
+        env:
+          REF: ${{ steps.push.outputs.ref }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: cosign sign --yes "${REF}@${DIGEST}"
+
+      - name: Summary
+        env:
+          REF: ${{ steps.push.outputs.ref }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          {
+            echo "## Chart published"
+            echo "\`oci://${REF}\` at \`${DIGEST}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Single check to require in branch protection
+  helm-status:
+    name: Helm CI status
+    needs: [lint, render]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any job failed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          case "$RESULTS" in *failure*|*cancelled*) exit 1 ;; esac
