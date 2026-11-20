@@ -122,7 +122,7 @@ jobs:
 
       # 2. Security gate (blocking only when JAVA_TRIVY_EXIT_CODE is "1")
       - name: Trivy gate (vulnerabilities and secrets)
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: scan/java-runtime:ci
           scanners: vuln,secret
@@ -133,7 +133,7 @@ jobs:
 
       - name: Trivy report (SARIF)
         if: always() && github.event_name != 'pull_request'
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: scan/java-runtime:ci
           scanners: vuln
@@ -298,7 +298,7 @@ jobs:
 
       # 2. Security gate (blocking only when JAVA_TRIVY_EXIT_CODE is "1")
       - name: Trivy gate (vulnerabilities and secrets)
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: scan/${{ matrix.service }}:ci
           scanners: vuln,secret
@@ -310,7 +310,7 @@ jobs:
       # Full report in the Security tab (never blocks)
       - name: Trivy report (SARIF)
         if: always() && github.event_name != 'pull_request'
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: scan/${{ matrix.service }}:ci
           scanners: vuln
@@ -436,7 +436,7 @@ jobs:
 
       # 2. Security gate: fail on fixable HIGH/CRITICAL vulnerabilities or secrets
       - name: Trivy gate (vulnerabilities and secrets)
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: scan/${{ matrix.service }}:ci
           scanners: vuln,secret
@@ -448,7 +448,7 @@ jobs:
       # Full report in the Security tab (never blocks)
       - name: Trivy report (SARIF)
         if: always() && github.event_name != 'pull_request'
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: scan/${{ matrix.service }}:ci
           scanners: vuln
