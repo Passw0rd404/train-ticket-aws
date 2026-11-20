@@ -31,9 +31,9 @@ jobs:
       run:
         working-directory: ${{ matrix.service }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: pip
@@ -57,11 +57,11 @@ jobs:
       run:
         working-directory: ts-ticket-office-service
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: "latest"
           cache: npm
           cache-dependency-path: ts-ticket-office-service/package-lock.json
 
@@ -84,9 +84,9 @@ jobs:
       run:
         working-directory: ts-news-service
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: ts-news-service/go.mod
           cache-dependency-path: ts-news-service/go.sum
@@ -107,7 +107,7 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: high
