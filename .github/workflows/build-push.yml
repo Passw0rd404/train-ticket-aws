@@ -235,29 +235,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Set up JDK 8 (preinstalled on the runner)
-        run: |
-          test -x "$JAVA_HOME_8_X64/bin/java" || { echo "::error::JDK 8 is not preinstalled on this runner image"; exit 1; }
-          echo "JAVA_HOME=$JAVA_HOME_8_X64" >> "$GITHUB_ENV"
-          echo "$JAVA_HOME_8_X64/bin" >> "$GITHUB_PATH"
-
-      - name: Cache Maven repository
-        uses: actions/cache@v5
+      - name: Set up JDK 8
+        uses: actions/setup-java@v5
         with:
-          path: ~/.m2/repository
-          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
-          restore-keys: maven-${{ runner.os }}-
+          distribution: temurin
+          java-version: "8"
+          cache: maven
 
       - name: Maven package (tests skipped)
         env:
           SERVICE: ${{ matrix.service }}
-        run: |
-          for attempt in 1 2 3; do
-            mvn -B -ntp -pl "$SERVICE" -am package -Dmaven.test.skip=true && exit 0
-            echo "::warning::Maven attempt $attempt failed, retrying in 15s"
-            sleep 15
-          done
-          exit 1
+        run: mvn -B -ntp -pl "$SERVICE" -am package -Dmaven.test.skip=true
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
