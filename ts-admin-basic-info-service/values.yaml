@@ -1,2 +1,6 @@
 name: ts-admin-basic-info-service
 port: 18767
+
+networkPolicy:
+  allowFrom:
+    - ts-gateway-service

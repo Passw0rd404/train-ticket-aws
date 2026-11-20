@@ -30,3 +30,8 @@ output "mq_endpoint" {
 output "mq_secret_arn" {
   value = module.mq.secret_arn
 }
+
+output "eso_role_arn" {
+  description = "Annotate the ESO service account with eks.amazonaws.com/role-arn"
+  value       = module.eso.role_arn
+}

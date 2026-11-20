@@ -101,3 +101,15 @@ module "mq" {
   apply_immediately    = var.apply_immediately
   secret_recovery_days = var.mq_secret_recovery_days
 }
+
+module "eso" {
+  source = "../modules/eso"
+
+  oidc_provider_arn = module.eks.oidc_provider_arn
+  namespace         = "external-secrets"
+  service_account   = "external-secrets"
+  secret_arns = [
+    module.rds.master_user_secret_arn,
+    module.mq.secret_arn,
+  ]
+}

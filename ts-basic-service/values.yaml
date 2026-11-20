@@ -1,2 +1,10 @@
 name: ts-basic-service
 port: 15680
+
+networkPolicy:
+  allowFrom:
+    - ts-gateway-service
+    - ts-preserve-other-service
+    - ts-preserve-service
+    - ts-travel-service
+    - ts-travel2-service

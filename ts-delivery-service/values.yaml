@@ -6,3 +6,7 @@ mysql:
 
 rabbitmq:
   enabled: true
+
+networkPolicy:
+  allowFrom:
+    - ts-gateway-service

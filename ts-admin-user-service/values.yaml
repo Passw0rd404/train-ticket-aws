@@ -1,2 +1,6 @@
 name: ts-admin-user-service
 port: 16115
+
+networkPolicy:
+  allowFrom:
+    - ts-gateway-service

@@ -59,6 +59,149 @@ jobs:
           echo "Other services: $other"
 
   # ---------------------------------------------------------------------------
+  # Java runtime base image (docker/java-runtime): built, scanned, pushed and
+  # signed once. The Java jobs below pull it by digest. Pull requests only build
+  # and scan it, and the Java jobs then build the base image themselves.
+  # ---------------------------------------------------------------------------
+  runtime:
+    name: java runtime base image
+    needs: discover
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+      security-events: write
+    outputs:
+      image: ${{ steps.ref.outputs.image }}
+    env:
+      IMAGE: ${{ needs.discover.outputs.prefix }}/train-ticket-java-runtime
+      TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
+      TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=ref,event=pr
+            type=sha,format=short
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      # 1. Build once into the local Docker daemon, for scanning
+      - name: Build image for scanning
+        uses: docker/build-push-action@v7
+        with:
+          context: docker/java-runtime
+          platforms: linux/amd64
+          push: false
+          load: true
+          provenance: false
+          sbom: false
+          tags: scan/java-runtime:ci
+          cache-from: type=gha,scope=java-runtime
+          cache-to: type=gha,mode=max,scope=java-runtime
+
+      # 2. Security gate (blocking only when JAVA_TRIVY_EXIT_CODE is "1")
+      - name: Trivy gate (vulnerabilities and secrets)
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: scan/java-runtime:ci
+          scanners: vuln,secret
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: ${{ env.JAVA_TRIVY_EXIT_CODE }}
+          format: table
+
+      - name: Trivy report (SARIF)
+        if: always() && github.event_name != 'pull_request'
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: scan/java-runtime:ci
+          scanners: vuln
+          format: sarif
+          output: trivy.sarif
+          exit-code: "0"
+
+      - name: Upload Trivy report
+        if: always() && github.event_name != 'pull_request'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy.sarif
+          category: trivy-java-runtime
+
+      # 3. Push (layers come from the cache, so this is fast)
+      - name: Push image
+        id: build
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v7
+        with:
+          context: docker/java-runtime
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          sbom: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=java-runtime
+
+      # 4. SBOM, provenance and signature, as for every other image
+      - name: Generate SBOM (SPDX)
+        if: github.event_name != 'pull_request'
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+          artifact-name: sbom-java-runtime.spdx.json
+
+      - name: Attest build provenance
+        if: github.event_name != 'pull_request'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Install cosign
+        if: github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign image and attest SBOM
+        if: github.event_name != 'pull_request'
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          cosign sign --yes "${IMAGE}@${DIGEST}"
+          cosign attest --yes --type spdxjson --predicate sbom.spdx.json "${IMAGE}@${DIGEST}"
+
+      # The Java jobs build their images FROM this exact digest
+      - name: Export image reference
+        id: ref
+        if: github.event_name != 'pull_request'
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: echo "image=${IMAGE}@${DIGEST}" >> "$GITHUB_OUTPUT"
+
+  # ---------------------------------------------------------------------------
   # Java services: Maven builds the jar, then Docker packages it.
   # The Dockerfiles expect a pre-built Java runtime base image, so each job
   # builds docker/java-runtime locally and passes it in as JAVA_RUNTIME_IMAGE
@@ -68,7 +211,7 @@ jobs:
   # ---------------------------------------------------------------------------
   java:
     name: java / ${{ matrix.service }}
-    needs: discover
+    needs: [discover, runtime]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -82,6 +225,8 @@ jobs:
         service: ${{ fromJSON(needs.discover.outputs.java) }}
     env:
       IMAGE: ${{ needs.discover.outputs.prefix }}/${{ matrix.service }}
+      # Our runtime image by digest; on pull requests (nothing is pushed) the base is built locally
+      JAVA_RUNTIME_IMAGE: ${{ needs.runtime.outputs.image || 'train-ticket-java-runtime:local' }}
       # 40+ parallel scans can hit the rate limit of one vulnerability database
       # registry, so a second mirror is listed as a fallback.
       TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
@@ -108,6 +253,7 @@ jobs:
           driver: docker
 
       - name: Build Java runtime base image
+        if: needs.runtime.outputs.image == ''
         uses: docker/build-push-action@v7
         with:
           context: docker/java-runtime
@@ -148,7 +294,7 @@ jobs:
           sbom: false
           tags: scan/${{ matrix.service }}:ci
           build-args: |
-            JAVA_RUNTIME_IMAGE=train-ticket-java-runtime:local
+            JAVA_RUNTIME_IMAGE=${{ env.JAVA_RUNTIME_IMAGE }}
 
       # 2. Security gate (blocking only when JAVA_TRIVY_EXIT_CODE is "1")
       - name: Trivy gate (vulnerabilities and secrets)
@@ -192,7 +338,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            JAVA_RUNTIME_IMAGE=train-ticket-java-runtime:local
+            JAVA_RUNTIME_IMAGE=${{ env.JAVA_RUNTIME_IMAGE }}
 
       # 4. SBOM from the pushed digest
       - name: Generate SBOM (SPDX)
@@ -369,17 +515,18 @@ jobs:
   # ---------------------------------------------------------------------------
   build-status:
     name: Build status
-    needs: [java, other]
+    needs: [runtime, java, other]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Fail if any image failed
         env:
+          RUNTIME: ${{ needs.runtime.result }}
           JAVA: ${{ needs.java.result }}
           OTHER: ${{ needs.other.result }}
         run: |
-          echo "java=$JAVA other=$OTHER"
-          if [ "$JAVA" != "success" ] || [ "$OTHER" != "success" ]; then
+          echo "runtime=$RUNTIME java=$JAVA other=$OTHER"
+          if [ "$RUNTIME" != "success" ] || [ "$JAVA" != "success" ] || [ "$OTHER" != "success" ]; then
             echo "One or more image builds failed."
             exit 1
           fi

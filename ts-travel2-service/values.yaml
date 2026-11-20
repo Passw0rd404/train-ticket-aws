@@ -3,3 +3,12 @@ port: 16346
 
 mysql:
   enabled: true
+
+networkPolicy:
+  allowFrom:
+    - ts-admin-travel-service
+    - ts-gateway-service
+    - ts-preserve-other-service
+    - ts-rebook-service
+    - ts-route-plan-service
+    - ts-travel-plan-service

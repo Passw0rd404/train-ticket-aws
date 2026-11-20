@@ -4,5 +4,15 @@ port: 12031
 mysql:
   enabled: true
 
-rabbitmq:
-  enabled: true
+networkPolicy:
+  allowFrom:
+    - ts-admin-order-service
+    - ts-cancel-service
+    - ts-execute-service
+    - ts-gateway-service
+    - ts-inside-payment-service
+    - ts-preserve-service
+    - ts-rebook-service
+    - ts-seat-service
+    - ts-security-service
+    - ts-voucher-service

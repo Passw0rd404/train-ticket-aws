@@ -1,2 +1,6 @@
 name: ts-cancel-service
 port: 18885
+
+networkPolicy:
+  allowFrom:
+    - ts-gateway-service

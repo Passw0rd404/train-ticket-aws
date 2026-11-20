@@ -33,7 +33,13 @@ module "eks" {
     kube-proxy = { most_recent = true }
 
     # Installed before the nodes so they get networking as soon as they join
-    vpc-cni                = { most_recent = true, before_compute = true }
+    vpc-cni = {
+      most_recent    = true
+      before_compute = true
+      configuration_values = jsonencode({
+        enableNetworkPolicy = "true"
+      })
+    }
     eks-pod-identity-agent = { most_recent = true, before_compute = true }
   }
 

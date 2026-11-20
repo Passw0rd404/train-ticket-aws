@@ -3,3 +3,14 @@ port: 14567
 
 mysql:
   enabled: true
+
+networkPolicy:
+  allowFrom:
+    - ts-admin-basic-info-service
+    - ts-admin-travel-service
+    - ts-basic-service
+    - ts-gateway-service
+    - ts-rebook-service
+    - ts-travel-plan-service
+    - ts-travel-service
+    - ts-travel2-service

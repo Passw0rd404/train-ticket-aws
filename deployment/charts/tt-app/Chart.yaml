@@ -1,0 +1,9 @@
+apiVersion: v2
+name: tt-app
+description: One Train Ticket service. Install one release per service with -f <service>/values.yaml
+type: application
+version: 0.1.0
+dependencies:
+  - name: tt-common
+    version: 0.1.0
+    repository: file://../tt-common

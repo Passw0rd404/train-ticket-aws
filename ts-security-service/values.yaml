@@ -3,3 +3,9 @@ port: 11188
 
 mysql:
   enabled: true
+
+networkPolicy:
+  allowFrom:
+    - ts-gateway-service
+    - ts-preserve-other-service
+    - ts-preserve-service

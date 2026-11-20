@@ -1,2 +1,6 @@
 name: ts-admin-order-service
 port: 16112
+
+networkPolicy:
+  allowFrom:
+    - ts-gateway-service

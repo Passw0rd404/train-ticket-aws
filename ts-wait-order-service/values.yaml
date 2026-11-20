@@ -3,3 +3,7 @@ port: 17525
 
 mysql:
   enabled: true
+
+networkPolicy:
+  allowFrom:
+    - ts-gateway-service

@@ -1,2 +1,12 @@
 name: ts-seat-service
 port: 18898
+
+networkPolicy:
+  allowFrom:
+    - ts-gateway-service
+    - ts-preserve-other-service
+    - ts-preserve-service
+    - ts-rebook-service
+    - ts-travel-plan-service
+    - ts-travel-service
+    - ts-travel2-service

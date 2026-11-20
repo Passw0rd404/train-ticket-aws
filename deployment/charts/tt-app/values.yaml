@@ -1,0 +1,101 @@
+# Defaults for every service (replaces the old global-values.yaml).
+# Each service overrides what it needs in <service>/values.yaml (name and port are required there).
+
+image:
+  registry: ghcr.io/passw0rd404
+  tag: latest
+  pullPolicy: IfNotPresent
+
+env:
+  SPRING_MAIN_ALLOW_CIRCULAR_REFERENCES: "true"
+
+envRaw:
+  - name: NODE_IP
+    valueFrom:
+      fieldRef:
+        fieldPath: status.hostIP
+
+# envFrom: []   # add the ConfigMaps your services need here (for example Nacos) when you set them up
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 300Mi
+  limits:
+    cpu: 500m
+    memory: 2000Mi
+
+# Credentials come from External Secrets Operator. A service turns them on with
+# `mysql: {enabled: true}` and/or `rabbitmq: {enabled: true}` in its own values.yaml.
+# Each secret type has its own ClusterSecretStore, usable only from namespaces with the matching label.
+mysql:
+  externalSecret:
+    store:
+      kind: ClusterSecretStore
+      name: ts-mysql
+    key: production/mysql        # remote secret with the properties: host, port, database, user, password
+    refreshInterval: 1h
+
+rabbitmq:
+  externalSecret:
+    store:
+      kind: ClusterSecretStore
+      name: ts-rabbitmq
+    key: production/rabbitmq     # remote secret with the properties: host, user, password
+    refreshInterval: 1h
+
+# NetworkPolicy: every service only accepts calls from the services listed in its own
+# values.yaml (networkPolicy.allowFrom). Needs network policy enabled in the EKS VPC CNI.
+networkPolicy:
+  enabled: true
+  # Where each service is installed (helm -n <namespace>). Callers are matched by this,
+  # so keep it in sync with where you really install them.
+  namespaces:
+    # tt-mysql-rabbitmq (may read: mysql + rabbitmq)
+    ts-delivery-service: tt-mysql-rabbitmq
+    ts-food-service: tt-mysql-rabbitmq
+    # tt-mysql (may read: mysql)
+    ts-assurance-service: tt-mysql
+    ts-auth-service: tt-mysql
+    ts-config-service: tt-mysql
+    ts-consign-price-service: tt-mysql
+    ts-consign-service: tt-mysql
+    ts-contacts-service: tt-mysql
+    ts-food-delivery-service: tt-mysql
+    ts-inside-payment-service: tt-mysql
+    ts-notification-service: tt-mysql
+    ts-order-other-service: tt-mysql
+    ts-order-service: tt-mysql
+    ts-payment-service: tt-mysql
+    ts-price-service: tt-mysql
+    ts-route-service: tt-mysql
+    ts-security-service: tt-mysql
+    ts-station-food-service: tt-mysql
+    ts-station-service: tt-mysql
+    ts-ticket-office-service: tt-mysql
+    ts-train-food-service: tt-mysql
+    ts-train-service: tt-mysql
+    ts-travel-service: tt-mysql
+    ts-travel2-service: tt-mysql
+    ts-user-service: tt-mysql
+    ts-voucher-service: tt-mysql
+    ts-wait-order-service: tt-mysql
+    # tt-no-secrets (may read: nothing)
+    ts-admin-basic-info-service: tt-no-secrets
+    ts-admin-order-service: tt-no-secrets
+    ts-admin-route-service: tt-no-secrets
+    ts-admin-travel-service: tt-no-secrets
+    ts-admin-user-service: tt-no-secrets
+    ts-avatar-service: tt-no-secrets
+    ts-basic-service: tt-no-secrets
+    ts-cancel-service: tt-no-secrets
+    ts-execute-service: tt-no-secrets
+    ts-gateway-service: tt-no-secrets
+    ts-news-service: tt-no-secrets
+    ts-preserve-other-service: tt-no-secrets
+    ts-preserve-service: tt-no-secrets
+    ts-rebook-service: tt-no-secrets
+    ts-route-plan-service: tt-no-secrets
+    ts-seat-service: tt-no-secrets
+    ts-travel-plan-service: tt-no-secrets
+    ts-verification-code-service: tt-no-secrets

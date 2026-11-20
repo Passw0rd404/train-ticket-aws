@@ -3,3 +3,14 @@ port: 11178
 
 mysql:
   enabled: true
+
+networkPolicy:
+  allowFrom:
+    - ts-admin-route-service
+    - ts-admin-travel-service
+    - ts-basic-service
+    - ts-gateway-service
+    - ts-rebook-service
+    - ts-route-plan-service
+    - ts-travel-service
+    - ts-travel2-service

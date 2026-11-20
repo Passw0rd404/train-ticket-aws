@@ -1,2 +1,6 @@
 name: ts-news-service
 port: 12862
+
+networkPolicy:
+  allowFrom:
+    - ts-gateway-service

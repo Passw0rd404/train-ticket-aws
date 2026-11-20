@@ -3,3 +3,9 @@ port: 16579
 
 mysql:
   enabled: true
+
+networkPolicy:
+  allowFrom:
+    - ts-admin-basic-info-service
+    - ts-basic-service
+    - ts-gateway-service

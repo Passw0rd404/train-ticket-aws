@@ -1,5 +1,7 @@
 name: ts-preserve-service
 port: 14568
 
-rabbitmq:
-  enabled: true
+networkPolicy:
+  allowFrom:
+    - ts-gateway-service
+    - ts-wait-order-service

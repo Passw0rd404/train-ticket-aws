@@ -1,2 +1,7 @@
 name: ts-verification-code-service
 port: 15678
+
+networkPolicy:
+  allowFrom:
+    - ts-auth-service
+    - ts-gateway-service

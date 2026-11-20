@@ -3,3 +3,7 @@ port: 16101
 
 mysql:
   enabled: true
+
+networkPolicy:
+  allowFrom:
+    - ts-gateway-service

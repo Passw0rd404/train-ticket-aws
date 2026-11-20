@@ -3,3 +3,15 @@ port: 12345
 
 mysql:
   enabled: true
+
+networkPolicy:
+  allowFrom:
+    - ts-admin-basic-info-service
+    - ts-admin-route-service
+    - ts-admin-travel-service
+    - ts-basic-service
+    - ts-gateway-service
+    - ts-order-other-service
+    - ts-order-service
+    - ts-preserve-other-service
+    - ts-preserve-service

@@ -4,5 +4,7 @@ port: 17853
 mysql:
   enabled: true
 
-rabbitmq:
-  enabled: true
+networkPolicy:
+  allowFrom:
+    - ts-cancel-service
+    - ts-gateway-service

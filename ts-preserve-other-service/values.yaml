@@ -1,5 +1,6 @@
 name: ts-preserve-other-service
 port: 14569
 
-rabbitmq:
-  enabled: true
+networkPolicy:
+  allowFrom:
+    - ts-gateway-service

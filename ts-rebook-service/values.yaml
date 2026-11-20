@@ -1,5 +1,6 @@
 name: ts-rebook-service
 port: 18886
 
-rabbitmq:
-  enabled: true
+networkPolicy:
+  allowFrom:
+    - ts-gateway-service

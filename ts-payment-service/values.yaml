@@ -3,3 +3,8 @@ port: 19001
 
 mysql:
   enabled: true
+
+networkPolicy:
+  allowFrom:
+    - ts-gateway-service
+    - ts-inside-payment-service

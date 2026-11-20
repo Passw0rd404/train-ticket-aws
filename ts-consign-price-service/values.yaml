@@ -3,3 +3,8 @@ port: 16110
 
 mysql:
   enabled: true
+
+networkPolicy:
+  allowFrom:
+    - ts-consign-service
+    - ts-gateway-service

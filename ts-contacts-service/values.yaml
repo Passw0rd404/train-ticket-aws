@@ -3,3 +3,10 @@ port: 12347
 
 mysql:
   enabled: true
+
+networkPolicy:
+  allowFrom:
+    - ts-admin-basic-info-service
+    - ts-gateway-service
+    - ts-preserve-other-service
+    - ts-preserve-service

@@ -3,3 +3,8 @@ port: 12340
 
 mysql:
   enabled: true
+
+networkPolicy:
+  allowFrom:
+    - ts-gateway-service
+    - ts-user-service

@@ -3,3 +3,8 @@ port: 19999
 
 mysql:
   enabled: true
+
+networkPolicy:
+  allowFrom:
+    - ts-food-service
+    - ts-gateway-service

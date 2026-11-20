@@ -1,2 +1,6 @@
 name: ts-avatar-service
 port: 17001
+
+networkPolicy:
+  allowFrom:
+    - ts-gateway-service

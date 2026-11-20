@@ -3,3 +3,9 @@ port: 18673
 
 mysql:
   enabled: true
+
+networkPolicy:
+  allowFrom:
+    - ts-cancel-service
+    - ts-gateway-service
+    - ts-rebook-service
