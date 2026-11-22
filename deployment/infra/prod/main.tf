@@ -113,3 +113,27 @@ module "eso" {
     module.mq.secret_arn,
   ]
 }
+
+# ESO reads the RDS and MQ secrets created by the rds and mq modules
+module "eso" {
+  source = "../modules/eso"
+
+  name              = "${local.name}-eso"
+  oidc_provider_arn = module.eks.oidc_provider_arn
+  oidc_provider     = module.eks.oidc_provider
+  namespace         = "external-secrets"
+  service_account   = "external-secrets"
+
+  secret_arns = [
+    module.rds.master_user_secret_arn,
+    module.mq.secret_arn,
+  ]
+}
+
+module "argocd" {
+  count  = var.enable_argocd ? 1 : 0
+  source = "../modules/argocd"
+
+  cluster_name   = module.eks.cluster_name
+  admin_username = var.argocd_admin_username
+}

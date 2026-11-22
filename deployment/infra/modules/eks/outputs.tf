@@ -26,3 +26,8 @@ output "cluster_security_group_id" {
 output "oidc_provider_arn" {
   value = module.eks.oidc_provider_arn
 }
+
+output "oidc_provider" {
+  description = "OIDC issuer without https://"
+  value       = module.eks.oidc_provider
+}

@@ -35,3 +35,17 @@ output "eso_role_arn" {
   description = "Annotate the ESO service account with eks.amazonaws.com/role-arn"
   value       = module.eso.role_arn
 }
+
+output "eso_role_arn" {
+  description = "Put this in the ESO ServiceAccount annotation eks.amazonaws.com/role-arn"
+  value       = module.eso.role_arn
+}
+
+output "cluster_arn" {
+  description = "Goes in the Argo CD cluster Secret as server"
+  value       = module.eks.cluster_arn
+}
+
+output "argocd_url" {
+  value = try(module.argocd[0].server_url, null)
+}

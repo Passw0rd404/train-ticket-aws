@@ -1,9 +1,3 @@
-locals {
-  # arn:aws:iam::<acct>:oidc-provider/oidc.eks.<region>.amazonaws.com/id/<ID>
-  # -> oidc.eks.<region>.amazonaws.com/id/<ID>
-  issuer = split(":oidc-provider/", var.oidc_provider_arn)[1]
-}
-
 data "aws_iam_policy_document" "trust" {
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
@@ -15,13 +9,14 @@ data "aws_iam_policy_document" "trust" {
 
     condition {
       test     = "StringEquals"
-      variable = "${local.issuer}:aud"
+      variable = "${var.oidc_provider}:aud"
       values   = ["sts.amazonaws.com"]
     }
 
+    # Only the ESO controller's service account can assume this role
     condition {
       test     = "StringEquals"
-      variable = "${local.issuer}:sub"
+      variable = "${var.oidc_provider}:sub"
       values   = ["system:serviceaccount:${var.namespace}:${var.service_account}"]
     }
   }
@@ -34,7 +29,12 @@ resource "aws_iam_role" "this" {
 
 data "aws_iam_policy_document" "read" {
   statement {
-    actions   = ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"]
+    actions = [
+      "secretsmanager:GetSecretValue",
+      "secretsmanager:DescribeSecret",
+      "secretsmanager:GetResourcePolicy",
+      "secretsmanager:ListSecretVersionIds",
+    ]
     resources = var.secret_arns
   }
 }

@@ -1,15 +1,43 @@
 name: ts-travel-service
 port: 12346
 
+image:
+  registry: ghcr.io/passw0rd404
+  tag: latest
+
+env:
+  SPRING_MAIN_ALLOW_CIRCULAR_REFERENCES: "true"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 300Mi
+  limits:
+    cpu: 500m
+    memory: 2000Mi
+
 mysql:
   enabled: true
+  externalSecret:
+    store:
+      kind: ClusterSecretStore
+      name: ts-mysql
+    key: production/mysql
 
 networkPolicy:
+  enabled: true
   allowFrom:
-    - ts-admin-travel-service
-    - ts-food-service
-    - ts-gateway-service
-    - ts-preserve-service
-    - ts-rebook-service
-    - ts-route-plan-service
-    - ts-travel-plan-service
+    - name: ts-admin-travel-service
+      namespace: tt-no-secrets
+    - name: ts-food-service
+      namespace: tt-mysql-rabbitmq
+    - name: ts-gateway-service
+      namespace: tt-no-secrets
+    - name: ts-preserve-service
+      namespace: tt-no-secrets
+    - name: ts-rebook-service
+      namespace: tt-no-secrets
+    - name: ts-route-plan-service
+      namespace: tt-no-secrets
+    - name: ts-travel-plan-service
+      namespace: tt-no-secrets

@@ -4,7 +4,6 @@ on:
   pull_request:
     paths:
       - "deployment/charts/**"
-      - "deployment/global-values.yaml"
       - "ts-*/values.yaml"
       - ".github/workflows/helm-ci.yml"
   push:
@@ -12,7 +11,6 @@ on:
     tags: ["chart-v*.*.*"]
     paths:
       - "deployment/charts/**"
-      - "deployment/global-values.yaml"
       - "ts-*/values.yaml"
       - ".github/workflows/helm-ci.yml"
   workflow_dispatch:
@@ -30,8 +28,7 @@ env:
   # Match your EKS version
   K8S_VERSION: 1.31.0
   CHART_DIR: deployment/charts/tt-common
-  CONSUMER_DIR: deployment/charts/tt-common/examples/consumer
-  GLOBAL_VALUES: deployment/global-values.yaml
+  CONSUMER_DIR: deployment/charts/tt-app
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -58,7 +55,7 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
         run: |
           BASE="origin/${BASE_REF}"
-          if git diff --quiet "$BASE"...HEAD -- "$CHART_DIR" ":!$CHART_DIR/examples" ":!$CHART_DIR/README.MD"; then
+          if git diff --quiet "$BASE"...HEAD -- "$CHART_DIR" ":!$CHART_DIR/values.example.yaml" ":!$CHART_DIR/README.MD"; then
             echo "Chart templates unchanged."
             exit 0
           fi
@@ -100,8 +97,8 @@ jobs:
           for f in ts-*/values.yaml; do
             svc=$(dirname "$f")
             echo "::group::$svc"
-            helm template "$svc" "$CONSUMER_DIR" -f "$GLOBAL_VALUES" -f "$f" > "rendered/$svc.yaml"
-            helm lint --strict "$CONSUMER_DIR" -f "$GLOBAL_VALUES" -f "$f"
+            helm template "$svc" "$CONSUMER_DIR" -f "$f" > "rendered/$svc.yaml"
+            helm lint --strict "$CONSUMER_DIR" -f "$f"
             echo "::endgroup::"
             count=$((count + 1))
           done

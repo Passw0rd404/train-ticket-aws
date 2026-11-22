@@ -1,10 +1,45 @@
 name: ts-notification-service
 port: 17853
 
+image:
+  registry: ghcr.io/passw0rd404
+  tag: latest
+
+env:
+  SPRING_MAIN_ALLOW_CIRCULAR_REFERENCES: "true"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 300Mi
+  limits:
+    cpu: 500m
+    memory: 2000Mi
+
 mysql:
   enabled: true
+  externalSecret:
+    store:
+      kind: ClusterSecretStore
+      name: ts-mysql
+    key: production/mysql
+
+externalSecrets:
+  email:
+    store:
+      kind: ClusterSecretStore
+      name: ts-email
+    key: production/notification-email
+    data:
+      - secretKey: email_address
+        property: address
+      - secretKey: email_password
+        property: password
 
 networkPolicy:
+  enabled: true
   allowFrom:
-    - ts-cancel-service
-    - ts-gateway-service
+    - name: ts-cancel-service
+      namespace: tt-no-secrets
+    - name: ts-gateway-service
+      namespace: tt-no-secrets

@@ -1,17 +1,47 @@
 name: ts-station-service
 port: 12345
 
+image:
+  registry: ghcr.io/passw0rd404
+  tag: latest
+
+env:
+  SPRING_MAIN_ALLOW_CIRCULAR_REFERENCES: "true"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 300Mi
+  limits:
+    cpu: 500m
+    memory: 2000Mi
+
 mysql:
   enabled: true
+  externalSecret:
+    store:
+      kind: ClusterSecretStore
+      name: ts-mysql
+    key: production/mysql
 
 networkPolicy:
+  enabled: true
   allowFrom:
-    - ts-admin-basic-info-service
-    - ts-admin-route-service
-    - ts-admin-travel-service
-    - ts-basic-service
-    - ts-gateway-service
-    - ts-order-other-service
-    - ts-order-service
-    - ts-preserve-other-service
-    - ts-preserve-service
+    - name: ts-admin-basic-info-service
+      namespace: tt-no-secrets
+    - name: ts-admin-route-service
+      namespace: tt-no-secrets
+    - name: ts-admin-travel-service
+      namespace: tt-no-secrets
+    - name: ts-basic-service
+      namespace: tt-no-secrets
+    - name: ts-gateway-service
+      namespace: tt-no-secrets
+    - name: ts-order-other-service
+      namespace: tt-mysql
+    - name: ts-order-service
+      namespace: tt-mysql
+    - name: ts-preserve-other-service
+      namespace: tt-no-secrets
+    - name: ts-preserve-service
+      namespace: tt-no-secrets

@@ -4,9 +4,6 @@ name: Service checks (non-Java)
 # Linting, SAST, secret scanning, CodeQL and Dockerfile checks live in code-quality.yml.
 
 on:
-  pull_request:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:

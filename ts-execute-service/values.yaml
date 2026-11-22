@@ -1,6 +1,23 @@
 name: ts-execute-service
 port: 12386
 
+image:
+  registry: ghcr.io/passw0rd404
+  tag: latest
+
+env:
+  SPRING_MAIN_ALLOW_CIRCULAR_REFERENCES: "true"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 300Mi
+  limits:
+    cpu: 500m
+    memory: 2000Mi
+
 networkPolicy:
+  enabled: true
   allowFrom:
-    - ts-gateway-service
+    - name: ts-gateway-service
+      namespace: tt-no-secrets

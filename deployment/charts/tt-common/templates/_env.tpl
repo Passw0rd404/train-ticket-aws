@@ -28,6 +28,11 @@ env:
 {{- if $r.enabled -}}
 {{- $items = append $items (dict "secretRef" (dict "name" (include "tt-common.rabbitmqSecretName" .))) -}}
 {{- end -}}
+{{- range $key, $es := (.Values.externalSecrets | default dict) -}}
+{{- if ne (toString $es.envFrom) "false" -}}
+{{- $items = append $items (dict "secretRef" (dict "name" (printf "%s-%s" $fullname $key))) -}}
+{{- end -}}
+{{- end -}}
 {{- range $key, $s := (.Values.secrets | default dict) -}}
 {{- if $s.envFrom -}}
 {{- $items = append $items (dict "secretRef" (dict "name" (printf "%s-%s" $fullname $key))) -}}

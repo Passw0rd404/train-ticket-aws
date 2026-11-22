@@ -109,3 +109,14 @@ variable "mq_deployment_mode" {
 variable "mq_secret_recovery_days" {
   type = number
 }
+
+# Argo CD (managed by EKS, signs in through IAM Identity Center)
+variable "enable_argocd" {
+  type    = bool
+  default = true
+}
+
+variable "argocd_admin_username" {
+  description = "IAM Identity Center username that becomes Argo CD admin"
+  type        = string
+}

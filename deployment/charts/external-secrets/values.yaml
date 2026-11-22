@@ -1,0 +1,53 @@
+# Values for the upstream External Secrets Operator chart.
+#   repo:      https://charts.external-secrets.io
+#   chart:     external-secrets
+#   namespace: external-secrets
+# The stores, service accounts and namespaces that go with it are in ./manifests
+
+installCRDs: true
+
+# We only READ secrets from AWS into the cluster. Turn off everything else so nobody can
+# push cluster secrets out to AWS or replicate secrets into other namespaces.
+crds:
+  createClusterExternalSecret: false
+  createPushSecret: false
+  createClusterPushSecret: false
+processClusterExternalSecret: false
+processPushSecret: false
+processClusterPushSecret: false
+processClusterStore: true
+
+replicaCount: 1
+
+# No IAM role on the controller itself: each ClusterSecretStore assumes its own IRSA role
+# through its own service account (see manifests/serviceaccounts.yaml), so the controller
+# can't read AWS secrets on its own.
+serviceAccount:
+  create: true
+  annotations: {}
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
+
+webhook:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+certController:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi

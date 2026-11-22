@@ -1,18 +1,49 @@
 name: ts-order-service
 port: 12031
 
+image:
+  registry: ghcr.io/passw0rd404
+  tag: latest
+
+env:
+  SPRING_MAIN_ALLOW_CIRCULAR_REFERENCES: "true"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 300Mi
+  limits:
+    cpu: 500m
+    memory: 2000Mi
+
 mysql:
   enabled: true
+  externalSecret:
+    store:
+      kind: ClusterSecretStore
+      name: ts-mysql
+    key: production/mysql
 
 networkPolicy:
+  enabled: true
   allowFrom:
-    - ts-admin-order-service
-    - ts-cancel-service
-    - ts-execute-service
-    - ts-gateway-service
-    - ts-inside-payment-service
-    - ts-preserve-service
-    - ts-rebook-service
-    - ts-seat-service
-    - ts-security-service
-    - ts-voucher-service
+    - name: ts-admin-order-service
+      namespace: tt-no-secrets
+    - name: ts-cancel-service
+      namespace: tt-no-secrets
+    - name: ts-execute-service
+      namespace: tt-no-secrets
+    - name: ts-gateway-service
+      namespace: tt-no-secrets
+    - name: ts-inside-payment-service
+      namespace: tt-mysql
+    - name: ts-preserve-service
+      namespace: tt-no-secrets
+    - name: ts-rebook-service
+      namespace: tt-no-secrets
+    - name: ts-seat-service
+      namespace: tt-no-secrets
+    - name: ts-security-service
+      namespace: tt-mysql
+    - name: ts-voucher-service
+      namespace: tt-mysql

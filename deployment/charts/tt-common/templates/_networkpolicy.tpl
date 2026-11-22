@@ -1,5 +1,6 @@
 {{/* Ingress allow-list: only the listed services (networkPolicy.allowFrom) and the listed
-     external CIDRs (networkPolicy.externalCidrs) can reach this service's port. */}}
+     external CIDRs (networkPolicy.externalCidrs) can reach this service's port.
+     allowFrom entries are {name, namespace} (or a plain name found in networkPolicy.namespaces). */}}
 {{- define "tt-common.networkpolicy" -}}
 {{- $np := .Values.networkPolicy | default dict -}}
 {{- if $np.enabled }}
@@ -19,13 +20,21 @@ spec:
   {{- if or $np.allowFrom $np.externalCidrs }}
   ingress:
     - from:
-        {{- range $caller := ($np.allowFrom | default list) }}
+        {{- range $c := ($np.allowFrom | default list) }}
+        {{- $cname := $c }}
+        {{- $cns := "" }}
+        {{- if kindIs "map" $c }}
+        {{- $cname = $c.name }}
+        {{- $cns = required (printf "networkPolicy.allowFrom entry %s needs a namespace" $c.name) $c.namespace }}
+        {{- else }}
+        {{- $cns = required (printf "networkPolicy.namespaces.%s is missing" $c) (index $nsMap $c) }}
+        {{- end }}
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: {{ required (printf "networkPolicy.namespaces.%s is missing in tt-app/values.yaml" $caller) (index $nsMap $caller) }}
+              kubernetes.io/metadata.name: {{ $cns }}
           podSelector:
             matchLabels:
-              app: {{ $caller }}
+              app: {{ $cname }}
         {{- end }}
         {{- range $cidr := ($np.externalCidrs | default list) }}
         - ipBlock:

@@ -18,18 +18,18 @@ variable "allowed_security_group_ids" {
 }
 
 variable "engine_version" {
-  description = "RabbitMQ version supported by Amazon MQ"
+  description = "Major.minor only (4.3 is the latest; RabbitMQ 4 runs only on mq.m7g)"
   type        = string
-  default     = "3.13"
+  default     = "4.3"
 }
 
 variable "instance_type" {
   type    = string
-  default = "mq.t3.micro"
+  default = "mq.m7g.large"
 }
 
 variable "deployment_mode" {
-  description = "SINGLE_INSTANCE or CLUSTER_MULTI_AZ (cluster needs mq.m5.large or bigger)"
+  description = "SINGLE_INSTANCE or CLUSTER_MULTI_AZ"
   type        = string
   default     = "SINGLE_INSTANCE"
 

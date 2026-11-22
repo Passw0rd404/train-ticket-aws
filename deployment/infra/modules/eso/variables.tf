@@ -1,24 +1,26 @@
 variable "name" {
   description = "IAM role name"
   type        = string
-  default     = "eso-secrets-reader"
 }
 
 variable "oidc_provider_arn" {
-  description = "ARN of the EKS cluster OIDC provider"
+  description = "ARN of the cluster's IAM OIDC provider (from the eks module)"
+  type        = string
+}
+
+variable "oidc_provider" {
+  description = "Cluster OIDC issuer without https:// (from the eks module)"
   type        = string
 }
 
 variable "namespace" {
-  description = "Namespace of the ESO service account"
-  type        = string
-  default     = "external-secrets"
+  type    = string
+  default = "external-secrets"
 }
 
 variable "service_account" {
-  description = "Name of the ESO service account"
-  type        = string
-  default     = "external-secrets"
+  type    = string
+  default = "external-secrets"
 }
 
 variable "secret_arns" {

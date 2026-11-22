@@ -1,10 +1,33 @@
 name: ts-payment-service
 port: 19001
 
+image:
+  registry: ghcr.io/passw0rd404
+  tag: latest
+
+env:
+  SPRING_MAIN_ALLOW_CIRCULAR_REFERENCES: "true"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 300Mi
+  limits:
+    cpu: 500m
+    memory: 2000Mi
+
 mysql:
   enabled: true
+  externalSecret:
+    store:
+      kind: ClusterSecretStore
+      name: ts-mysql
+    key: production/mysql
 
 networkPolicy:
+  enabled: true
   allowFrom:
-    - ts-gateway-service
-    - ts-inside-payment-service
+    - name: ts-gateway-service
+      namespace: tt-no-secrets
+    - name: ts-inside-payment-service
+      namespace: tt-mysql

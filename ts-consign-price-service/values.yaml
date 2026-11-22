@@ -1,10 +1,33 @@
 name: ts-consign-price-service
 port: 16110
 
+image:
+  registry: ghcr.io/passw0rd404
+  tag: latest
+
+env:
+  SPRING_MAIN_ALLOW_CIRCULAR_REFERENCES: "true"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 300Mi
+  limits:
+    cpu: 500m
+    memory: 2000Mi
+
 mysql:
   enabled: true
+  externalSecret:
+    store:
+      kind: ClusterSecretStore
+      name: ts-mysql
+    key: production/mysql
 
 networkPolicy:
+  enabled: true
   allowFrom:
-    - ts-consign-service
-    - ts-gateway-service
+    - name: ts-consign-service
+      namespace: tt-mysql
+    - name: ts-gateway-service
+      namespace: tt-no-secrets

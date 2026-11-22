@@ -22,14 +22,18 @@ admin_principal_arns = []
 
 # RDS MySQL
 db_instance_class        = "db.m7g.large"
-db_multi_az              = true
+db_multi_az              = false
 db_backup_retention_days = 14
 db_deletion_protection   = true
 db_skip_final_snapshot   = false
 
-# Amazon MQ for RabbitMQ (a cluster needs mq.m5.large or bigger)
-mq_instance_type        = "mq.m5.large"
-mq_deployment_mode      = "CLUSTER_MULTI_AZ"
+# Amazon MQ for RabbitMQ 4.x: only mq.m7g instance types, one broker (no cluster)
+mq_instance_type        = "mq.m7g.large"
+mq_deployment_mode      = "SINGLE_INSTANCE"
 mq_secret_recovery_days = 7
 
 apply_immediately = false
+
+# Argo CD: the username you create in IAM Identity Center (step 0)
+enable_argocd         = true
+argocd_admin_username = "REPLACE_WITH_IDC_USERNAME"
