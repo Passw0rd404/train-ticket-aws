@@ -167,6 +167,8 @@ jobs:
       - name: Generate SBOM (SPDX)
         if: github.event_name != 'pull_request'
         uses: anchore/sbom-action@v0
+        env:
+          SYFT_FILE_METADATA_SELECTION: none
         with:
           image: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
           format: spdx-json
@@ -190,9 +192,13 @@ jobs:
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
         run: |
-          retry() { for i in 1 2 3 4 5; do "$@" && return 0; echo "attempt $i failed, retrying"; sleep $((i*15)); done; return 1; }
-          retry cosign sign --yes "${IMAGE}@${DIGEST}"
-          retry cosign attest --yes --type spdxjson --predicate sbom.spdx.json "${IMAGE}@${DIGEST}"
+          retry() { n=$1; shift; for i in $(seq 1 "$n"); do "$@" && return 0; echo "attempt $i of $n failed"; sleep $((i*15)); done; return 1; }
+          retry 4 cosign sign --yes "${IMAGE}@${DIGEST}"
+          ls -l sbom.spdx.json
+          retry 2 cosign attest --yes --type spdxjson --predicate sbom.spdx.json "${IMAGE}@${DIGEST}" || {
+            echo "::warning::Rekor refused the SBOM attestation; attaching it without a transparency log entry"
+            cosign attest --yes --tlog-upload=false --type spdxjson --predicate sbom.spdx.json "${IMAGE}@${DIGEST}"
+          }
 
       # The Java jobs build their images FROM this exact digest
       - name: Export image reference
@@ -237,20 +243,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      # The runner already ships JDK 8, so nothing is downloaded (the Temurin download
-      # from GitHub releases returned a broken archive for some jobs).
-      - name: Use the JDK 8 installed on the runner
-        run: |
-          echo "JAVA_HOME=${JAVA_HOME_8_X64}" >> "$GITHUB_ENV"
-          echo "${JAVA_HOME_8_X64}/bin" >> "$GITHUB_PATH"
-          "${JAVA_HOME_8_X64}/bin/java" -version
-
-      - name: Cache Maven dependencies
-        uses: actions/cache@v4
+      # Temurin first; if its download is broken (it returned a bad archive for some jobs),
+      # fall back to Zulu, which is hosted elsewhere. setup-java also caches ~/.m2.
+      - name: Set up JDK 8 (Temurin)
+        id: jdk
+        continue-on-error: true
+        uses: actions/setup-java@v5
         with:
-          path: ~/.m2/repository
-          key: maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: maven-
+          distribution: temurin
+          java-version: "8"
+          cache: maven
+
+      - name: Set up JDK 8 (Zulu, fallback)
+        if: steps.jdk.outcome == 'failure'
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: "8"
+          cache: maven
 
       # Maven Central answers 429 when many jobs download at once, so retry with a pause.
       # -U on a retry makes Maven forget the failures it cached from the first attempt.
@@ -367,6 +377,8 @@ jobs:
       - name: Generate SBOM (SPDX)
         if: github.event_name != 'pull_request'
         uses: anchore/sbom-action@v0
+        env:
+          SYFT_FILE_METADATA_SELECTION: none
         with:
           image: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
           format: spdx-json
@@ -392,9 +404,13 @@ jobs:
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
         run: |
-          retry() { for i in 1 2 3 4 5; do "$@" && return 0; echo "attempt $i failed, retrying"; sleep $((i*15)); done; return 1; }
-          retry cosign sign --yes "${IMAGE}@${DIGEST}"
-          retry cosign attest --yes --type spdxjson --predicate sbom.spdx.json "${IMAGE}@${DIGEST}"
+          retry() { n=$1; shift; for i in $(seq 1 "$n"); do "$@" && return 0; echo "attempt $i of $n failed"; sleep $((i*15)); done; return 1; }
+          retry 4 cosign sign --yes "${IMAGE}@${DIGEST}"
+          ls -l sbom.spdx.json
+          retry 2 cosign attest --yes --type spdxjson --predicate sbom.spdx.json "${IMAGE}@${DIGEST}" || {
+            echo "::warning::Rekor refused the SBOM attestation; attaching it without a transparency log entry"
+            cosign attest --yes --tlog-upload=false --type spdxjson --predicate sbom.spdx.json "${IMAGE}@${DIGEST}"
+          }
 
   # ---------------------------------------------------------------------------
   # Non-Java services (Python, Node, Go): each Dockerfile is self-contained.
@@ -507,6 +523,8 @@ jobs:
       - name: Generate SBOM (SPDX)
         if: github.event_name != 'pull_request'
         uses: anchore/sbom-action@v0
+        env:
+          SYFT_FILE_METADATA_SELECTION: none
         with:
           image: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
           format: spdx-json
@@ -532,9 +550,13 @@ jobs:
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
         run: |
-          retry() { for i in 1 2 3 4 5; do "$@" && return 0; echo "attempt $i failed, retrying"; sleep $((i*15)); done; return 1; }
-          retry cosign sign --yes "${IMAGE}@${DIGEST}"
-          retry cosign attest --yes --type spdxjson --predicate sbom.spdx.json "${IMAGE}@${DIGEST}"
+          retry() { n=$1; shift; for i in $(seq 1 "$n"); do "$@" && return 0; echo "attempt $i of $n failed"; sleep $((i*15)); done; return 1; }
+          retry 4 cosign sign --yes "${IMAGE}@${DIGEST}"
+          ls -l sbom.spdx.json
+          retry 2 cosign attest --yes --type spdxjson --predicate sbom.spdx.json "${IMAGE}@${DIGEST}" || {
+            echo "::warning::Rekor refused the SBOM attestation; attaching it without a transparency log entry"
+            cosign attest --yes --tlog-upload=false --type spdxjson --predicate sbom.spdx.json "${IMAGE}@${DIGEST}"
+          }
 
   # ---------------------------------------------------------------------------
   # Single check to require in branch protection (matrix job names are dynamic)
