@@ -48,9 +48,3 @@ variable "apply_immediately" {
   type    = bool
   default = false
 }
-
-variable "secret_recovery_days" {
-  description = "Days a deleted credentials secret stays recoverable (0 deletes immediately)"
-  type        = number
-  default     = 7
-}

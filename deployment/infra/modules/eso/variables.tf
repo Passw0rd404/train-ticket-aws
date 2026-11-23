@@ -1,5 +1,5 @@
-variable "name" {
-  description = "IAM role name"
+variable "name_prefix" {
+  description = "Roles are called <name_prefix>-eso-<key>"
   type        = string
 }
 
@@ -18,12 +18,10 @@ variable "namespace" {
   default = "external-secrets"
 }
 
-variable "service_account" {
-  type    = string
-  default = "external-secrets"
-}
-
-variable "secret_arns" {
-  description = "Exact Secrets Manager ARNs ESO may read"
-  type        = list(string)
+variable "roles" {
+  description = "One role per secret: the service account that may assume it and the secret it may read"
+  type = map(object({
+    service_account = string
+    secret_arn      = string
+  }))
 }

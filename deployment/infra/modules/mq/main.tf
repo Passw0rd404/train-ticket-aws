@@ -58,20 +58,3 @@ resource "aws_mq_broker" "this" {
     Name = "${var.name}-rabbitmq"
   }
 }
-
-resource "aws_secretsmanager_secret" "admin" {
-  name                    = "${var.name}/rabbitmq/admin"
-  description             = "RabbitMQ admin credentials for ${var.name}"
-  recovery_window_in_days = var.secret_recovery_days
-}
-
-resource "aws_secretsmanager_secret_version" "admin" {
-  secret_id = aws_secretsmanager_secret.admin.id
-
-  secret_string = jsonencode({
-    username = var.admin_username
-    password = random_password.admin.result
-    host     = split(":", trimprefix(aws_mq_broker.this.instances[0].endpoints[0], "amqps://"))[0]
-    port     = 5671
-  })
-}

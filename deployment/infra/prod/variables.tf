@@ -120,3 +120,15 @@ variable "argocd_admin_username" {
   description = "IAM Identity Center username that becomes Argo CD admin"
   type        = string
 }
+
+variable "db_name" {
+  description = "MySQL schema all services use"
+  type        = string
+  default     = "ts"
+}
+
+variable "db_app_user" {
+  description = "Dedicated MySQL user for the services (not the RDS master user)"
+  type        = string
+  default     = "tsapp"
+}

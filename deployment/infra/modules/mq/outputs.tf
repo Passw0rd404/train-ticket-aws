@@ -11,9 +11,18 @@ output "console_url" {
   value = aws_mq_broker.this.instances[0].console_url
 }
 
-output "secret_arn" {
-  description = "Secrets Manager secret with username, password, host and port"
-  value       = aws_secretsmanager_secret.admin.arn
+output "host" {
+  description = "Broker hostname only, no amqps:// and no port"
+  value       = split(":", trimprefix(aws_mq_broker.this.instances[0].endpoints[0], "amqps://"))[0]
+}
+
+output "admin_username" {
+  value = var.admin_username
+}
+
+output "admin_password" {
+  value     = random_password.admin.result
+  sensitive = true
 }
 
 output "security_group_id" {

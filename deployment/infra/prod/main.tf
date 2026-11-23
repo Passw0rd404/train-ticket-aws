@@ -84,6 +84,7 @@ module "rds" {
   backup_retention_days = var.db_backup_retention_days
   deletion_protection   = var.db_deletion_protection
   skip_final_snapshot   = var.db_skip_final_snapshot
+  db_name               = var.db_name
   apply_immediately     = var.apply_immediately
 }
 
@@ -99,35 +100,6 @@ module "mq" {
   instance_type        = var.mq_instance_type
   deployment_mode      = var.mq_deployment_mode
   apply_immediately    = var.apply_immediately
-  secret_recovery_days = var.mq_secret_recovery_days
-}
-
-module "eso" {
-  source = "../modules/eso"
-
-  oidc_provider_arn = module.eks.oidc_provider_arn
-  namespace         = "external-secrets"
-  service_account   = "external-secrets"
-  secret_arns = [
-    module.rds.master_user_secret_arn,
-    module.mq.secret_arn,
-  ]
-}
-
-# ESO reads the RDS and MQ secrets created by the rds and mq modules
-module "eso" {
-  source = "../modules/eso"
-
-  name              = "${local.name}-eso"
-  oidc_provider_arn = module.eks.oidc_provider_arn
-  oidc_provider     = module.eks.oidc_provider
-  namespace         = "external-secrets"
-  service_account   = "external-secrets"
-
-  secret_arns = [
-    module.rds.master_user_secret_arn,
-    module.mq.secret_arn,
-  ]
 }
 
 module "argocd" {
@@ -136,4 +108,35 @@ module "argocd" {
 
   cluster_name   = module.eks.cluster_name
   admin_username = var.argocd_admin_username
+}
+
+module "app_secrets" {
+  source = "../modules/app-secrets"
+
+  prefix                  = "production"
+  recovery_window_in_days = var.mq_secret_recovery_days
+
+  mysql_host     = module.rds.address
+  mysql_database = var.db_name
+  mysql_user     = var.db_app_user
+
+  rabbitmq_host     = module.mq.host
+  rabbitmq_user     = module.mq.admin_username
+  rabbitmq_password = module.mq.admin_password
+}
+
+# One role per secret. The service account names must match the ones you create.
+module "eso" {
+  source = "../modules/eso"
+
+  name_prefix       = local.name
+  oidc_provider_arn = module.eks.oidc_provider_arn
+  oidc_provider     = module.eks.oidc_provider
+  namespace         = "external-secrets"
+
+  roles = {
+    mysql        = { service_account = "eso-mysql", secret_arn = module.app_secrets.mysql_arn }
+    rabbitmq     = { service_account = "eso-rabbitmq", secret_arn = module.app_secrets.rabbitmq_arn }
+    notification = { service_account = "eso-notification", secret_arn = module.app_secrets.notification_arn }
+  }
 }

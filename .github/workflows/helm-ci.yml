@@ -14,11 +14,6 @@ on:
       - "ts-*/values.yaml"
       - ".github/workflows/helm-ci.yml"
   workflow_dispatch:
-    inputs:
-      publish:
-        description: "Publish the chart (pick a TAG in 'Use workflow from' above)"
-        type: boolean
-        default: false
 
 concurrency:
   group: helm-ci-${{ github.ref }}
@@ -142,8 +137,7 @@ jobs:
     name: Publish chart to GHCR
     if: >-
       github.ref_type == 'tag' &&
-      ((github.event_name == 'push' && startsWith(github.ref_name, 'chart-v')) ||
-       (github.event_name == 'workflow_dispatch' && inputs.publish))
+      (github.event_name == 'workflow_dispatch' || startsWith(github.ref_name, 'chart-v'))
     needs: [lint, render]
     runs-on: ubuntu-latest
     permissions:

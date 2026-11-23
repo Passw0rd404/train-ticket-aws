@@ -65,3 +65,9 @@ variable "apply_immediately" {
   type        = bool
   default     = false
 }
+
+variable "db_name" {
+  description = "Schema created on the instance (the app secret points at it)"
+  type        = string
+  default     = "ts"
+}

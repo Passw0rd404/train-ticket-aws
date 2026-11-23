@@ -41,6 +41,7 @@ module "db" {
   username                    = "admin"
   manage_master_user_password = true
   port                        = 3306
+  db_name                     = var.db_name
 
   multi_az               = var.multi_az
   create_db_subnet_group = true

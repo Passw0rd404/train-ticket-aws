@@ -27,20 +27,6 @@ output "mq_endpoint" {
   value = module.mq.endpoint
 }
 
-output "mq_secret_arn" {
-  value = module.mq.secret_arn
-}
-
-output "eso_role_arn" {
-  description = "Annotate the ESO service account with eks.amazonaws.com/role-arn"
-  value       = module.eso.role_arn
-}
-
-output "eso_role_arn" {
-  description = "Put this in the ESO ServiceAccount annotation eks.amazonaws.com/role-arn"
-  value       = module.eso.role_arn
-}
-
 output "cluster_arn" {
   description = "Goes in the Argo CD cluster Secret as server"
   value       = module.eks.cluster_arn
@@ -48,4 +34,9 @@ output "cluster_arn" {
 
 output "argocd_url" {
   value = try(module.argocd[0].server_url, null)
+}
+
+output "eso_role_arns" {
+  description = "Annotation eks.amazonaws.com/role-arn for each ESO service account"
+  value       = module.eso.role_arns
 }
