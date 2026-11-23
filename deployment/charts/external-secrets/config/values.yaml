@@ -1,0 +1,34 @@
+# Everything that changes from one AWS account / environment to another lives here.
+global:
+  accountId: "REPLACE_ME"           # AWS account ID, keep the quotes: "123456789012"
+  region: eu-central-1              # region where the secrets live in Secrets Manager
+  labelDomain: secrets.example.com  # prefix of the namespace labels that unlock a secret store
+  operatorNamespace: external-secrets
+
+# One entry per secret type: a ClusterSecretStore + an IRSA service account.
+# Services use `name` as their store name (mysql.externalSecret.store.name, ...).
+stores:
+  - name: ts-mysql
+    serviceAccount: eso-mysql
+    roleName: tt-eso-mysql          # IAM role arn:aws:iam::<accountId>:role/<roleName>
+    label: mysql                    # namespaces need the label <labelDomain>/mysql: "true"
+  - name: ts-rabbitmq
+    serviceAccount: eso-rabbitmq
+    roleName: tt-eso-rabbitmq
+    label: rabbitmq
+  - name: ts-email
+    serviceAccount: eso-email
+    roleName: tt-eso-email
+    label: email
+
+# Application namespaces and which secret types each one may use (labels from `stores`).
+# Rule: a namespace may use a secret only if EVERY service in it uses that secret.
+namespaces:
+  - name: tt-mysql-rabbitmq
+    secrets: [mysql, rabbitmq]
+  - name: tt-mysql
+    secrets: [mysql]
+  - name: tt-notification
+    secrets: [mysql, email]
+  - name: tt-no-secrets
+    secrets: []

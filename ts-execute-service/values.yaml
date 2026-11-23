@@ -1,5 +1,6 @@
 name: ts-execute-service
 port: 12386
+namespace: tt-no-secrets
 
 image:
   registry: ghcr.io/passw0rd404

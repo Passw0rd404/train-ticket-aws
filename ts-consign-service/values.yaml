@@ -1,5 +1,6 @@
 name: ts-consign-service
 port: 16111
+namespace: tt-mysql
 
 image:
   registry: ghcr.io/passw0rd404

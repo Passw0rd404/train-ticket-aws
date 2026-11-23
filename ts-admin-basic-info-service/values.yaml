@@ -1,5 +1,6 @@
 name: ts-admin-basic-info-service
 port: 18767
+namespace: tt-no-secrets
 
 image:
   registry: ghcr.io/passw0rd404

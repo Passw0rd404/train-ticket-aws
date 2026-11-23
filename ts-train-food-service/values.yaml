@@ -1,5 +1,6 @@
 name: ts-train-food-service
 port: 19999
+namespace: tt-mysql
 
 image:
   registry: ghcr.io/passw0rd404

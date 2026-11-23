@@ -1,5 +1,6 @@
 name: ts-contacts-service
 port: 12347
+namespace: tt-mysql
 
 image:
   registry: ghcr.io/passw0rd404

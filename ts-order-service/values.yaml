@@ -1,5 +1,6 @@
 name: ts-order-service
 port: 12031
+namespace: tt-mysql
 
 image:
   registry: ghcr.io/passw0rd404

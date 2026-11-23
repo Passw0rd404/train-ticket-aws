@@ -1,5 +1,6 @@
 name: ts-config-service
 port: 15679
+namespace: tt-mysql
 
 image:
   registry: ghcr.io/passw0rd404

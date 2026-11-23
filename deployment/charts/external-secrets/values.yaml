@@ -2,7 +2,7 @@
 #   repo:      https://charts.external-secrets.io
 #   chart:     external-secrets
 #   namespace: external-secrets
-# The stores, service accounts and namespaces that go with it are in ./manifests
+# The stores, service accounts and namespaces that go with it are in ./config (a small Helm chart)
 
 installCRDs: true
 
@@ -20,7 +20,7 @@ processClusterStore: true
 replicaCount: 1
 
 # No IAM role on the controller itself: each ClusterSecretStore assumes its own IRSA role
-# through its own service account (see manifests/serviceaccounts.yaml), so the controller
+# through its own service account (see config/templates/stores.yaml), so the controller
 # can't read AWS secrets on its own.
 serviceAccount:
   create: true

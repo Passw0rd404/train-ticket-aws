@@ -1,5 +1,6 @@
 name: ts-preserve-other-service
 port: 14569
+namespace: tt-no-secrets
 
 image:
   registry: ghcr.io/passw0rd404

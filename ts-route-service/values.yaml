@@ -1,5 +1,6 @@
 name: ts-route-service
 port: 11178
+namespace: tt-mysql
 
 image:
   registry: ghcr.io/passw0rd404

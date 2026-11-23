@@ -1,0 +1,61 @@
+# One Application per ts-*/values.yaml, all built from the tt-app chart. (wave 3, after the platform apps)
+# Each values file needs `name` and `namespace` at the top. Adding a service folder adds an app,
+# removing the folder removes it.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: train-ticket-services
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - git:
+        repoURL: https://github.com/Passw0rd404/train-ticket-aws.git
+        revision: main
+        files:
+          - path: "ts-*/values.yaml"
+  template:
+    metadata:
+      name: '{{ .name }}'
+      labels:
+        app.kubernetes.io/part-of: train-ticket
+    spec:
+      project: train-ticket
+      sources:
+        - repoURL: https://github.com/Passw0rd404/train-ticket-aws.git
+          targetRevision: main
+          path: deployment/charts/tt-app
+          helm:
+            releaseName: '{{ .name }}'
+            valueFiles:
+              - '$values/{{ .path.path }}/values.yaml'
+        - repoURL: https://github.com/Passw0rd404/train-ticket-aws.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{ .namespace }}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - SkipDryRunOnMissingResource=true
+        retry:
+          limit: 10
+          backoff:
+            duration: 20s
+            factor: 2
+            maxDuration: 5m
+      # ESO fills in default fields on ExternalSecrets, which would show as permanent drift
+      ignoreDifferences:
+        - group: external-secrets.io
+          kind: ExternalSecret
+          jqPathExpressions:
+            - .spec.data[]?.remoteRef.conversionStrategy
+            - .spec.data[]?.remoteRef.decodingStrategy
+            - .spec.data[]?.remoteRef.metadataPolicy
+            - .spec.target.deletionPolicy

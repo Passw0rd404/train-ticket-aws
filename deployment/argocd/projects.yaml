@@ -1,0 +1,66 @@
+# Two projects. Only "platform" may create cluster-wide things (namespaces, secret stores, operators).
+# The services live in "train-ticket", which cannot touch namespaces or ClusterSecretStores,
+# so nobody who only edits a service can change the secret-access labels.
+# Apply this file once by hand before root.yaml (root belongs to the platform project).
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: platform
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  description: Cluster add-ons (operators, namespaces, secret stores). Platform changes only.
+  sourceRepos:
+    - https://github.com/Passw0rd404/train-ticket-aws.git
+    - https://argoproj.github.io/argo-helm
+    - https://charts.external-secrets.io
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: "*"
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: train-ticket
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  description: The Train Ticket services. Namespaced resources only, in the 4 service namespaces.
+  sourceRepos:
+    - https://github.com/Passw0rd404/train-ticket-aws.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: tt-mysql-rabbitmq
+    - server: https://kubernetes.default.svc
+      namespace: tt-mysql
+    - server: https://kubernetes.default.svc
+      namespace: tt-notification
+    - server: https://kubernetes.default.svc
+      namespace: tt-no-secrets
+  clusterResourceWhitelist: []
+  namespaceResourceWhitelist:
+    - group: argoproj.io
+      kind: Rollout
+    - group: ""
+      kind: Service
+    - group: ""
+      kind: ServiceAccount
+    - group: ""
+      kind: ConfigMap
+    - group: external-secrets.io
+      kind: ExternalSecret
+    - group: networking.k8s.io
+      kind: NetworkPolicy
+    - group: networking.k8s.io
+      kind: Ingress
+    - group: autoscaling
+      kind: HorizontalPodAutoscaler
+    - group: policy
+      kind: PodDisruptionBudget
+  orphanedResources:
+    warn: true

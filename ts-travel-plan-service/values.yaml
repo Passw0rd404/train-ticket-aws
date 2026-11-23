@@ -1,5 +1,6 @@
 name: ts-travel-plan-service
 port: 14322
+namespace: tt-no-secrets
 
 image:
   registry: ghcr.io/passw0rd404

@@ -1,5 +1,6 @@
 name: ts-admin-route-service
 port: 16113
+namespace: tt-no-secrets
 
 image:
   registry: ghcr.io/passw0rd404

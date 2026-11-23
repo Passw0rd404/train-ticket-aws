@@ -1,0 +1,27 @@
+# App of apps. Apply once by hand (after projects.yaml):
+#   kubectl apply -f deployment/argocd/projects.yaml
+#   kubectl apply -f deployment/argocd/root.yaml
+# From then on it creates everything else in this folder: the projects, the platform apps and the services.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform
+  source:
+    repoURL: https://github.com/Passw0rd404/train-ticket-aws.git
+    targetRevision: main
+    path: deployment/argocd
+    directory:
+      recurse: true
+      exclude: root.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

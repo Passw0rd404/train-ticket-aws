@@ -1,5 +1,6 @@
 name: ts-delivery-service
 port: 18808
+namespace: tt-mysql-rabbitmq
 
 image:
   registry: ghcr.io/passw0rd404

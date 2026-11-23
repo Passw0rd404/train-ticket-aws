@@ -1,5 +1,6 @@
 name: ts-station-service
 port: 12345
+namespace: tt-mysql
 
 image:
   registry: ghcr.io/passw0rd404

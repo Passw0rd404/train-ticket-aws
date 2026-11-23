@@ -1,5 +1,6 @@
 name: ts-assurance-service
 port: 18888
+namespace: tt-mysql
 
 image:
   registry: ghcr.io/passw0rd404

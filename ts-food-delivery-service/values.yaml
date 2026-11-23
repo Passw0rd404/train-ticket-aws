@@ -1,5 +1,6 @@
 name: ts-food-delivery-service
 port: 18957
+namespace: tt-mysql
 
 image:
   registry: ghcr.io/passw0rd404

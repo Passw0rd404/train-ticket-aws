@@ -1,0 +1,17 @@
+{{/* Application namespaces. Their labels decide which secret stores they may use.
+     Only the platform repo / Argo may change them. */}}
+{{- range .Values.namespaces }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .name }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  {{- if .secrets }}
+  labels:
+    {{- range .secrets }}
+    {{ $.Values.global.labelDomain }}/{{ . }}: "true"
+    {{- end }}
+  {{- end }}
+{{- end }}

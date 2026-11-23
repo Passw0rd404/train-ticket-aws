@@ -1,5 +1,6 @@
 name: ts-basic-service
 port: 15680
+namespace: tt-no-secrets
 
 image:
   registry: ghcr.io/passw0rd404

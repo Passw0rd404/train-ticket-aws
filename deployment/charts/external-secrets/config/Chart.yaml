@@ -1,0 +1,5 @@
+apiVersion: v2
+name: eso-config
+description: External Secrets Operator config - namespaces with secret-access labels, IRSA service accounts and ClusterSecretStores
+type: application
+version: 0.1.0

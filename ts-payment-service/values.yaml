@@ -1,5 +1,6 @@
 name: ts-payment-service
 port: 19001
+namespace: tt-mysql
 
 image:
   registry: ghcr.io/passw0rd404

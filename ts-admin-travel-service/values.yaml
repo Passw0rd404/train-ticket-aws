@@ -1,5 +1,6 @@
 name: ts-admin-travel-service
 port: 16114
+namespace: tt-no-secrets
 
 image:
   registry: ghcr.io/passw0rd404

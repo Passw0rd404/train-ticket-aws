@@ -1,5 +1,6 @@
 name: ts-rebook-service
 port: 18886
+namespace: tt-no-secrets
 
 image:
   registry: ghcr.io/passw0rd404

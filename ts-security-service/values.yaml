@@ -1,5 +1,6 @@
 name: ts-security-service
 port: 11188
+namespace: tt-mysql
 
 image:
   registry: ghcr.io/passw0rd404

@@ -1,5 +1,6 @@
 name: ts-travel2-service
 port: 16346
+namespace: tt-mysql
 
 image:
   registry: ghcr.io/passw0rd404

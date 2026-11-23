@@ -1,5 +1,6 @@
 name: ts-food-service
 port: 18856
+namespace: tt-mysql-rabbitmq
 
 image:
   registry: ghcr.io/passw0rd404

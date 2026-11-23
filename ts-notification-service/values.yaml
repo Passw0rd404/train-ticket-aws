@@ -1,5 +1,6 @@
 name: ts-notification-service
 port: 17853
+namespace: tt-notification
 
 image:
   registry: ghcr.io/passw0rd404
