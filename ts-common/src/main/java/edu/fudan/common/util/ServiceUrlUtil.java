@@ -29,7 +29,6 @@ public final class ServiceUrlUtil {
         urls.put("ts-execute-service", "http://ts-execute-service.tt-no-secrets.svc.cluster.local:12386");
         urls.put("ts-food-delivery-service", "http://ts-food-delivery-service.tt-mysql.svc.cluster.local:18957");
         urls.put("ts-food-service", "http://ts-food-service.tt-mysql-rabbitmq.svc.cluster.local:18856");
-        urls.put("ts-gateway-service", "http://ts-gateway-service.tt-no-secrets.svc.cluster.local:18888");
         urls.put("ts-inside-payment-service", "http://ts-inside-payment-service.tt-mysql.svc.cluster.local:18673");
         urls.put("ts-news-service", "http://ts-news-service.tt-no-secrets.svc.cluster.local:12862");
         urls.put("ts-notification-service", "http://ts-notification-service.tt-notification.svc.cluster.local:17853");

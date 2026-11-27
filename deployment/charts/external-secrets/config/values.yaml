@@ -3,23 +3,23 @@ global:
   accountId: "REPLACE_ME"           # AWS account ID, keep the quotes: "123456789012"
   region: eu-central-1              # region where the secrets live in Secrets Manager
   labelDomain: secrets.example.com  # prefix of the namespace labels that unlock a secret store
-  operatorNamespace: external-secrets
 
-# One entry per secret type: a ClusterSecretStore + an IRSA service account.
+# One entry per secret type: a ClusterSecretStore that assumes its own scoped IAM role via the
+# ESO controller's EKS Pod Identity association.
 # Services use `name` as their store name (mysql.externalSecret.store.name, ...).
 stores:
   - name: ts-mysql
-    serviceAccount: eso-mysql
     roleName: tt-eso-mysql          # IAM role arn:aws:iam::<accountId>:role/<roleName>
     label: mysql                    # namespaces need the label <labelDomain>/mysql: "true"
   - name: ts-rabbitmq
-    serviceAccount: eso-rabbitmq
     roleName: tt-eso-rabbitmq
     label: rabbitmq
   - name: ts-email
-    serviceAccount: eso-email
     roleName: tt-eso-email
     label: email
+  - name: cloudflare
+    roleName: tt-eso-cloudflare
+    label: cloudflare
 
 # Application namespaces and which secret types each one may use (labels from `stores`).
 # Rule: a namespace may use a secret only if EVERY service in it uses that secret.
@@ -32,3 +32,5 @@ namespaces:
     secrets: [mysql, email]
   - name: tt-no-secrets
     secrets: []
+  - name: cloudflared
+    secrets: [cloudflare]

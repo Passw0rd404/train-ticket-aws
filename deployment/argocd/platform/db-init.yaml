@@ -1,0 +1,23 @@
+# One-shot RDS MySQL user setup Job in tt-mysql (runs after eso-config wave 2, before services wave 4). (wave 3)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: db-init
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  project: platform
+  source:
+    repoURL: https://github.com/Passw0rd404/train-ticket-aws.git
+    targetRevision: main
+    path: deployment/charts/db-init
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: tt-mysql
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - SkipDryRunOnMissingResource=true

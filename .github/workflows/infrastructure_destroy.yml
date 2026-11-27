@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: 'Type "destroy-prod" to confirm'
+        description: 'Type "destroy-dev" to confirm'
         required: true
 
 permissions:
@@ -12,13 +12,15 @@ permissions:
   id-token: write
 
 concurrency:
-  group: terraform-prod
+  group: terraform-dev
   cancel-in-progress: false
 
 env:
   TF_VERSION: '1.11.0'
-  WORKING_DIR: './deployment/infra/prod'
+  WORKING_DIR: './deployment/infra/dev'
   AWS_REGION: 'eu-central-1'
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  TF_VAR_cloudflare_account_id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
 
 jobs:
   destroy:
@@ -32,7 +34,7 @@ jobs:
         run: |
           # Require an explicit phrase because this workflow permanently
           # removes the environment.
-          if [ "$CONFIRM" != "destroy-prod" ]; then
+          if [ "$CONFIRM" != "destroy-dev" ]; then
             echo "Confirmation text did not match. Nothing was destroyed."
             exit 1
           fi

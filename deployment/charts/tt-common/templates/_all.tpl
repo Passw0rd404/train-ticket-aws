@@ -12,6 +12,8 @@ Each piece can also be used alone: tt-common.rollout, .service, .secrets, .exter
 {{- include "tt-common.externalsecrets.custom" . }}
 {{- include "tt-common.rollout" . }}
 {{- include "tt-common.service" . }}
+{{- include "tt-common.middlewares" . }}
+{{- include "tt-common.httproute" . }}
 {{- include "tt-common.ingress" . }}
 {{- include "tt-common.hpa" . }}
 {{- include "tt-common.pdb" . }}

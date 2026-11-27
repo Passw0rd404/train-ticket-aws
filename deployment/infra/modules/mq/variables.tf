@@ -20,7 +20,7 @@ variable "allowed_security_group_ids" {
 variable "engine_version" {
   description = "Major.minor only (4.3 is the latest; RabbitMQ 4 runs only on mq.m7g)"
   type        = string
-  default     = "4.3"
+  default     = "4.2"
 }
 
 variable "instance_type" {

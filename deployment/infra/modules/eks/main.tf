@@ -8,6 +8,8 @@ module "eks" {
   vpc_id     = var.vpc_id
   subnet_ids = var.subnet_ids
 
+  enable_irsa = false
+
   endpoint_private_access      = true
   endpoint_public_access       = var.endpoint_public_access
   endpoint_public_access_cidrs = var.endpoint_public_access_cidrs
@@ -41,6 +43,8 @@ module "eks" {
       })
     }
     eks-pod-identity-agent = { most_recent = true, before_compute = true }
+    # Needed for HPA (autoscaling/v2); if eksbuild.12 hits 503 on /openapi/v2, pin a fixed build
+    metrics-server = { most_recent = true }
 
     aws-ebs-csi-driver = {
       most_recent = true

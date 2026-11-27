@@ -1,0 +1,5 @@
+apiVersion: v2
+name: cloudflared
+description: Remotely managed Cloudflare Tunnel (cloudflared) backed by External Secrets Operator
+type: application
+version: 0.1.0

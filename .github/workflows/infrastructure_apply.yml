@@ -9,7 +9,7 @@ permissions:
 
 # Never let two applies touch the same state at once.
 concurrency:
-  group: terraform-prod
+  group: terraform-dev
   cancel-in-progress: false
 
 env:
@@ -17,8 +17,10 @@ env:
   # Whole tree (the stack and the modules), used by fmt and the linters
   INFRA_DIR: './deployment/infra'
   # The only environment
-  WORKING_DIR: './deployment/infra/prod'
+  WORKING_DIR: './deployment/infra/dev'
   AWS_REGION: 'eu-central-1'
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  TF_VAR_cloudflare_account_id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
 
 jobs:
   terraform:

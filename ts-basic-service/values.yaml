@@ -20,8 +20,8 @@ resources:
 networkPolicy:
   enabled: true
   allowFrom:
-    - name: ts-gateway-service
-      namespace: tt-no-secrets
+    - name: traefik
+      namespace: traefik
     - name: ts-preserve-other-service
       namespace: tt-no-secrets
     - name: ts-preserve-service
@@ -30,3 +30,8 @@ networkPolicy:
       namespace: tt-mysql
     - name: ts-travel2-service
       namespace: tt-mysql
+
+httpRoute:
+  enabled: true
+  paths:
+    - value: /api/v1/basicservice

@@ -32,8 +32,8 @@ networkPolicy:
       namespace: tt-no-secrets
     - name: ts-food-service
       namespace: tt-mysql-rabbitmq
-    - name: ts-gateway-service
-      namespace: tt-no-secrets
+    - name: traefik
+      namespace: traefik
     - name: ts-preserve-service
       namespace: tt-no-secrets
     - name: ts-rebook-service
@@ -42,3 +42,8 @@ networkPolicy:
       namespace: tt-no-secrets
     - name: ts-travel-plan-service
       namespace: tt-no-secrets
+
+httpRoute:
+  enabled: true
+  paths:
+    - value: /api/v1/travelservice

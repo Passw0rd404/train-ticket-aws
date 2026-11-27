@@ -1,6 +1,7 @@
-{{/* One IRSA service account + one ClusterSecretStore per secret type. Each IAM role must be allowed
-     to read ONLY its own secret. Trust policy: the cluster's OIDC provider, with
-     sub = system:serviceaccount:<operatorNamespace>:<serviceAccount> and aud = sts.amazonaws.com */}}
+{{/* One ClusterSecretStore per secret type using EKS Pod Identity on the ESO controller SA
+     (external-secrets/external-secrets) + sts:AssumeRole into each scoped role below.
+     Each scoped IAM role's trust policy must allow sts:AssumeRole from the ESO controller role,
+     and its permissions must allow reading ONLY its own secret. */}}
 {{- $acct := required "global.accountId is required" .Values.global.accountId -}}
 {{- if not (kindIs "string" $acct) -}}
 {{- fail "global.accountId must be a quoted string, for example \"123456789012\"" -}}
@@ -9,15 +10,6 @@
 {{- fail "set global.accountId in deployment/charts/external-secrets/config/values.yaml" -}}
 {{- end -}}
 {{- range .Values.stores }}
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: {{ .serviceAccount }}
-  namespace: {{ $.Values.global.operatorNamespace }}
-  annotations:
-    argocd.argoproj.io/sync-wave: "1"
-    eks.amazonaws.com/role-arn: arn:aws:iam::{{ $acct }}:role/{{ .roleName }}
 ---
 apiVersion: external-secrets.io/v1
 kind: ClusterSecretStore
@@ -30,11 +22,7 @@ spec:
     aws:
       service: SecretsManager
       region: {{ $.Values.global.region }}
-      auth:
-        jwt:
-          serviceAccountRef:
-            name: {{ .serviceAccount }}
-            namespace: {{ $.Values.global.operatorNamespace }}
+      role: arn:aws:iam::{{ $acct }}:role/{{ .roleName }}
   conditions:
     - namespaceSelector:
         matchLabels:

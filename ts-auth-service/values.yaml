@@ -28,7 +28,13 @@ mysql:
 networkPolicy:
   enabled: true
   allowFrom:
-    - name: ts-gateway-service
-      namespace: tt-no-secrets
+    - name: traefik
+      namespace: traefik
     - name: ts-user-service
       namespace: tt-mysql
+
+httpRoute:
+  enabled: true
+  paths:
+    - value: /api/v1/auth
+    - value: /api/v1/users

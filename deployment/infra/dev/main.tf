@@ -7,6 +7,11 @@ terraform {
       version = "~> 6.27"
     }
 
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 5.10"
+    }
+
     random = {
       source  = "hashicorp/random"
       version = "~> 3.6"
@@ -17,7 +22,7 @@ terraform {
   #   terraform init -backend-config="bucket=tfstate-mern-dev-<account-id>"
   # Locking uses a lock file in the bucket, no DynamoDB table.
   backend "s3" {
-    key          = "prod/terraform.tfstate"
+    key          = "dev/terraform.tfstate"
     region       = "eu-central-1"
     encrypt      = true
     use_lockfile = true
@@ -35,6 +40,9 @@ provider "aws" {
     }
   }
 }
+
+# Reads CLOUDFLARE_API_TOKEN from the environment
+provider "cloudflare" {}
 
 locals {
   name = "${var.project}-${var.env}"
@@ -97,46 +105,76 @@ module "mq" {
 
   allowed_security_group_ids = [module.eks.node_security_group_id]
 
-  instance_type        = var.mq_instance_type
-  deployment_mode      = var.mq_deployment_mode
-  apply_immediately    = var.apply_immediately
+  engine_version    = var.mq_engine_version
+  instance_type     = var.mq_instance_type
+  deployment_mode   = var.mq_deployment_mode
+  apply_immediately = var.apply_immediately
+}
+
+module "cloudflare" {
+  source = "../modules/cloudflare"
+
+  name                = local.name
+  account_id          = var.cloudflare_account_id
+  zone_name           = var.cloudflare_zone_name
+  api_hostname        = var.api_hostname
+  pages_project_name  = var.pages_project_name
+  pages_domain        = var.pages_domain
+  traefik_service_url = var.traefik_service_url
 }
 
 module "argocd" {
   count  = var.enable_argocd ? 1 : 0
   source = "../modules/argocd"
 
-  cluster_name   = module.eks.cluster_name
-  admin_username = var.argocd_admin_username
+  cluster_name       = module.eks.cluster_name
+  create_admin_user  = var.argocd_create_admin_user
+  admin_username     = var.argocd_admin_username
+  admin_display_name = var.argocd_admin_display_name
+  admin_given_name   = var.argocd_admin_given_name
+  admin_family_name  = var.argocd_admin_family_name
+  admin_email        = var.argocd_admin_email
 }
 
 module "app_secrets" {
   source = "../modules/app-secrets"
 
-  prefix                  = "production"
-  recovery_window_in_days = var.mq_secret_recovery_days
+  prefix                  = var.secrets_prefix
+  recovery_window_in_days = var.secret_recovery_window_days
 
-  mysql_host     = module.rds.address
-  mysql_database = var.db_name
-  mysql_user     = var.db_app_user
+  mysql_host           = module.rds.address
+  mysql_database       = var.db_name
+  mysql_admin_user     = module.rds.master_username
+  mysql_admin_password = module.rds.master_password
+  mysql_user           = var.db_app_user
 
   rabbitmq_host     = module.mq.host
   rabbitmq_user     = module.mq.admin_username
   rabbitmq_password = module.mq.admin_password
+
+  cloudflare_tunnel_token = module.cloudflare.tunnel_token
 }
 
-# One role per secret. The service account names must match the ones you create.
+# EKS Pod Identity controller role + 4 least-privilege roles assumed via sts:AssumeRole
 module "eso" {
   source = "../modules/eso"
 
-  name_prefix       = local.name
-  oidc_provider_arn = module.eks.oidc_provider_arn
-  oidc_provider     = module.eks.oidc_provider
-  namespace         = "external-secrets"
+  name_prefix  = local.name
+  cluster_name = module.eks.cluster_name
+  namespace    = "external-secrets"
 
   roles = {
-    mysql        = { service_account = "eso-mysql", secret_arn = module.app_secrets.mysql_arn }
-    rabbitmq     = { service_account = "eso-rabbitmq", secret_arn = module.app_secrets.rabbitmq_arn }
-    notification = { service_account = "eso-notification", secret_arn = module.app_secrets.notification_arn }
+    "tt-eso-mysql" = {
+      secret_arns = [module.app_secrets.mysql_arn, module.app_secrets.mysql_bootstrap_arn]
+    }
+    "tt-eso-rabbitmq" = {
+      secret_arns = [module.app_secrets.rabbitmq_arn]
+    }
+    "tt-eso-email" = {
+      secret_arns = [module.app_secrets.notification_arn]
+    }
+    "tt-eso-cloudflare" = {
+      secret_arns = [module.app_secrets.cloudflare_arn]
+    }
   }
 }

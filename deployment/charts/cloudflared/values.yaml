@@ -1,0 +1,46 @@
+replicaCount: 2
+
+image:
+  repository: cloudflare/cloudflared
+  tag: latest
+  pullPolicy: IfNotPresent
+
+externalSecret:
+  store:
+    kind: ClusterSecretStore
+    name: cloudflare
+  key: production/cloudflare
+  property: tunnelToken
+  refreshInterval: 1h
+
+serviceAccount:
+  create: true
+  name: cloudflared
+  automount: false
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+networkPolicy:
+  enabled: true

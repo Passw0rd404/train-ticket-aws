@@ -34,8 +34,8 @@ networkPolicy:
       namespace: tt-no-secrets
     - name: ts-execute-service
       namespace: tt-no-secrets
-    - name: ts-gateway-service
-      namespace: tt-no-secrets
+    - name: traefik
+      namespace: traefik
     - name: ts-inside-payment-service
       namespace: tt-mysql
     - name: ts-preserve-other-service
@@ -48,3 +48,8 @@ networkPolicy:
       namespace: tt-mysql
     - name: ts-voucher-service
       namespace: tt-mysql
+
+httpRoute:
+  enabled: true
+  paths:
+    - value: /api/v1/orderOtherService

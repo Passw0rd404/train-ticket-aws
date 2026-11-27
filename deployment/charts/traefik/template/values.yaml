@@ -1,0 +1,6 @@
+hostname: api.abdullahsameh.tech
+allowedOrigin: https://dev.abdullahsameh.tech
+
+gatewayClassName: traefik
+gatewayName: traefik-gateway
+listenerPort: 8000

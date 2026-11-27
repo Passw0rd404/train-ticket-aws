@@ -1,0 +1,16 @@
+{{- if .Values.networkPolicy.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cloudflared-ingress
+  labels:
+    app.kubernetes.io/name: cloudflared
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  podSelector:
+    matchLabels:
+      app: cloudflared
+  policyTypes:
+    - Ingress
+{{- end }}

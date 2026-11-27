@@ -19,6 +19,11 @@ resource "aws_vpc_security_group_ingress_rule" "from_clients" {
   description                  = "MySQL from allowed security group"
 }
 
+resource "random_password" "master" {
+  length  = 32
+  special = false
+}
+
 module "db" {
   source  = "terraform-aws-modules/rds/aws"
   version = "~> 7.2"
@@ -36,10 +41,10 @@ module "db" {
   storage_type          = "gp3"
   storage_encrypted     = true
 
-  # RDS generates the master password and keeps it in Secrets Manager,
-  # so it never appears in Terraform state or in the repo.
   username                    = "admin"
-  manage_master_user_password = true
+  manage_master_user_password = false
+  password_wo                 = random_password.master.result
+  password_wo_version         = 1
   port                        = 3306
   db_name                     = var.db_name
 

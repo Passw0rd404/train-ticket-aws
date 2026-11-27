@@ -19,9 +19,9 @@ processClusterStore: true
 
 replicaCount: 1
 
-# No IAM role on the controller itself: each ClusterSecretStore assumes its own IRSA role
-# through its own service account (see config/templates/stores.yaml), so the controller
-# can't read AWS secrets on its own.
+# With EKS Pod Identity, attach ONE Pod Identity Association to the controller's ServiceAccount
+# (external-secrets/external-secrets) with permission ONLY to sts:AssumeRole into the scoped
+# store roles in config/templates/stores.yaml — so the controller itself cannot read secrets directly.
 serviceAccount:
   create: true
   annotations: {}

@@ -1,0 +1,39 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mysql-db-init
+spec:
+  backoffLimit: 10
+  template:
+    metadata:
+      labels:
+        app: mysql-db-init
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+      containers:
+        - name: mysql-db-init
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          envFrom:
+            - secretRef:
+                name: mysql-bootstrap
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              MYSQL_PWD="$ADMIN_PASSWORD" mysql -h "$MYSQL_HOST" -P "$MYSQL_PORT" -u "$ADMIN_USER" <<SQL
+              CREATE DATABASE IF NOT EXISTS $MYSQL_DATABASE CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+              CREATE USER IF NOT EXISTS '$APP_USER'@'%' IDENTIFIED BY '$APP_PASSWORD';
+              GRANT ALL PRIVILEGES ON $MYSQL_DATABASE.* TO '$APP_USER'@'%';
+              FLUSH PRIVILEGES;
+              SQL

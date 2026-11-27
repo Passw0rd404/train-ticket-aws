@@ -1,0 +1,31 @@
+# Traefik Proxy (Gateway API controller): the upstream chart with our values file from this repo. (wave 1)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: traefik
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: platform
+  sources:
+    - repoURL: https://traefik.github.io/charts
+      chart: traefik
+      targetRevision: 39.0.9
+      helm:
+        releaseName: traefik
+        valueFiles:
+          - $values/deployment/charts/traefik/values.yaml
+    - repoURL: https://github.com/Passw0rd404/train-ticket-aws.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: traefik
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

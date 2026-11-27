@@ -1,0 +1,5 @@
+apiVersion: v2
+name: traefik-template
+description: Traefik GatewayClass, Gateway and shared Middlewares for Train Ticket
+type: application
+version: 0.1.0

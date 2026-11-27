@@ -32,9 +32,14 @@ networkPolicy:
       namespace: tt-no-secrets
     - name: ts-cancel-service
       namespace: tt-no-secrets
-    - name: ts-gateway-service
-      namespace: tt-no-secrets
+    - name: traefik
+      namespace: traefik
     - name: ts-preserve-other-service
       namespace: tt-no-secrets
     - name: ts-preserve-service
       namespace: tt-no-secrets
+
+httpRoute:
+  enabled: true
+  paths:
+    - value: /api/v1/userservice/users

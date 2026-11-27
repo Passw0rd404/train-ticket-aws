@@ -1,12 +1,12 @@
 variable "prefix" {
-  description = "Secret names are <prefix>/mysql, <prefix>/rabbitmq and <prefix>/notification-email"
+  description = "Secret names are <prefix>/mysql, <prefix>/mysql-bootstrap, <prefix>/rabbitmq, <prefix>/notification-email and <prefix>/cloudflare"
   type        = string
   default     = "production"
 }
 
 variable "recovery_window_in_days" {
   type    = number
-  default = 7
+  default = 0
 }
 
 variable "mysql_host" {
@@ -23,8 +23,17 @@ variable "mysql_database" {
   type = string
 }
 
+variable "mysql_admin_user" {
+  type = string
+}
+
+variable "mysql_admin_password" {
+  type      = string
+  sensitive = true
+}
+
 variable "mysql_user" {
-  description = "Dedicated application user (you create it in MySQL, see the steps)"
+  description = "Dedicated application user (created by the k8s db-init Job)"
   type        = string
 }
 
@@ -38,6 +47,11 @@ variable "rabbitmq_user" {
 }
 
 variable "rabbitmq_password" {
+  type      = string
+  sensitive = true
+}
+
+variable "cloudflare_tunnel_token" {
   type      = string
   sensitive = true
 }

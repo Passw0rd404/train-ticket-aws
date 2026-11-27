@@ -1,0 +1,24 @@
+# Traefik GatewayClass, Gateway and shared Middlewares. (wave 2)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: traefik-template
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: platform
+  source:
+    repoURL: https://github.com/Passw0rd404/train-ticket-aws.git
+    targetRevision: main
+    path: deployment/charts/traefik/template
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: traefik
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - SkipDryRunOnMissingResource=true

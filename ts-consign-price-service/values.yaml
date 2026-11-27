@@ -30,5 +30,10 @@ networkPolicy:
   allowFrom:
     - name: ts-consign-service
       namespace: tt-mysql
-    - name: ts-gateway-service
-      namespace: tt-no-secrets
+    - name: traefik
+      namespace: traefik
+
+httpRoute:
+  enabled: true
+  paths:
+    - value: /api/v1/consignpriceservice

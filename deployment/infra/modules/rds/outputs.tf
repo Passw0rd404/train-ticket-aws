@@ -7,9 +7,13 @@ output "port" {
   value = module.db.db_instance_port
 }
 
-output "master_user_secret_arn" {
-  description = "Secrets Manager secret holding the generated master username and password"
-  value       = module.db.db_instance_master_user_secret_arn
+output "master_username" {
+  value = "admin"
+}
+
+output "master_password" {
+  value     = random_password.master.result
+  sensitive = true
 }
 
 output "security_group_id" {

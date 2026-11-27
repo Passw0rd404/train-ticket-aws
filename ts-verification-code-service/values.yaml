@@ -22,5 +22,10 @@ networkPolicy:
   allowFrom:
     - name: ts-auth-service
       namespace: tt-mysql
-    - name: ts-gateway-service
-      namespace: tt-no-secrets
+    - name: traefik
+      namespace: traefik
+
+httpRoute:
+  enabled: true
+  paths:
+    - value: /api/v1/verifycode

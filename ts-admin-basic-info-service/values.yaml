@@ -20,5 +20,18 @@ resources:
 networkPolicy:
   enabled: true
   allowFrom:
-    - name: ts-gateway-service
-      namespace: tt-no-secrets
+    - name: traefik
+      namespace: traefik
+
+httpRoute:
+  enabled: true
+  paths:
+    - value: /api/v1/adminbasicservice
+  middlewares:
+    - rate-limit
+
+middlewares:
+  rate-limit:
+    rateLimit:
+      average: 20
+      burst: 40

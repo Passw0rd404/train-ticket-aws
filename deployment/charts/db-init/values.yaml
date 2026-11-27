@@ -1,0 +1,11 @@
+image:
+  repository: mysql
+  tag: "8.4"
+  pullPolicy: IfNotPresent
+
+externalSecret:
+  store:
+    kind: ClusterSecretStore
+    name: ts-mysql
+  key: production/mysql-bootstrap
+  refreshInterval: 1h

@@ -25,5 +25,10 @@ mysql:
 networkPolicy:
   enabled: true
   allowFrom:
-    - name: ts-gateway-service
-      namespace: tt-no-secrets
+    - name: traefik
+      namespace: traefik
+
+httpRoute:
+  enabled: true
+  paths:
+    - value: /getVoucher

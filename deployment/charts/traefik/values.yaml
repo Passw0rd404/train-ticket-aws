@@ -1,0 +1,83 @@
+# Values for the upstream Traefik Helm chart.
+#   repo:      https://traefik.github.io/charts
+#   chart:     traefik
+#   namespace: traefik
+# The GatewayClass, Gateway and shared Middlewares live in ./template (a small Helm chart).
+
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+deployment:
+  replicas: 1
+  # Matches tt-common _networkpolicy.tpl (app: traefik in namespace: traefik)
+  podLabels:
+    app: traefik
+
+# Internal-only ClusterIP: Cloudflare Tunnel (cloudflared) forwards traffic into Traefik over HTTP.
+service:
+  enabled: true
+  type: ClusterIP
+
+ports:
+  web:
+    port: 8000
+    exposedPort: 80
+    protocol: TCP
+    forwardedHeaders:
+      insecure: true
+    http:
+      middlewares:
+        - traefik-security-headers@kubernetescrd
+        - traefik-cors-dev@kubernetescrd
+  websecure:
+    expose:
+      default: false
+
+providers:
+  kubernetesGateway:
+    enabled: true
+  kubernetesCRD:
+    enabled: true
+  kubernetesIngress:
+    enabled: false
+
+ingressClass:
+  enabled: false
+
+gatewayClass:
+  enabled: false
+
+gateway:
+  enabled: false
+
+ingressRoute:
+  dashboard:
+    enabled: false
+
+logs:
+  general:
+    level: INFO
+  access:
+    enabled: true
+
+securityContext:
+  capabilities:
+    drop: [ALL]
+  readOnlyRootFilesystem: true
+  runAsGroup: 65532
+  runAsNonRoot: true
+  runAsUser: 65532
+
+podSecurityContext:
+  runAsGroup: 65532
+  runAsNonRoot: true
+  runAsUser: 65532
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
