@@ -1,5 +1,7 @@
 package waitorder.utils;
 
+
+import edu.fudan.common.util.ServiceUrlUtil;
 import edu.fudan.common.entity.Contacts;
 import edu.fudan.common.util.Response;
 import org.springframework.core.ParameterizedTypeReference;
@@ -68,7 +70,7 @@ public class PollThread extends Thread{
     }
 
     private String getServiceUrl(String serviceName) {
-        return "http://" + serviceName;
+        return ServiceUrlUtil.getServiceUrl(serviceName);
     }
 
     private Response doPreserve(String url, HttpEntity requestParam){

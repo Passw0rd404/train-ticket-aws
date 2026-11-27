@@ -1,5 +1,7 @@
 package inside_payment.service;
 
+
+import edu.fudan.common.util.ServiceUrlUtil;
 import edu.fudan.common.entity.OrderStatus;
 import edu.fudan.common.entity.Order;
 import edu.fudan.common.util.Response;
@@ -39,7 +41,7 @@ public class InsidePaymentServiceImpl implements InsidePaymentService {
     private static final Logger LOGGER = LoggerFactory.getLogger(InsidePaymentServiceImpl.class);
 
     private String getServiceUrl(String serviceName) {
-        return "http://" + serviceName;
+        return ServiceUrlUtil.getServiceUrl(serviceName);
     }
 
     @Override

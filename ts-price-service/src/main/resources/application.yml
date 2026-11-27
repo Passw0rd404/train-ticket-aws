@@ -1,8 +1,4 @@
 spring:
-  cloud:
-    nacos:
-      discovery:
-        server-addr: ${NACOS_ADDRS:127.0.0.1:8848}
   application:
     name: ts-price-service
   datasource:

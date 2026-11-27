@@ -29,7 +29,6 @@ image:
 #   - name: NODE_IP
 #     valueFrom: {fieldRef: {fieldPath: status.hostIP}}
 # envFrom:                      # raw k8s entries (appended to global.envFrom)
-#   - configMapRef: {name: nacos}
 
 # ---- MySQL secret (creates <name>-mysql and adds it to envFrom) -------------
 # Keys are <PREFIX>_MYSQL_HOST/PORT/DATABASE/USER/PASSWORD, PREFIX from the name (ts-order-service -> ORDER).
@@ -139,7 +138,6 @@ global:
     - name: NODE_IP
       valueFrom: {fieldRef: {fieldPath: status.hostIP}}
   envFrom:
-    - configMapRef: {name: nacos}
     - configMapRef: {name: rabbitmq}
   mysql:
     host: tsdb-mysql-leader

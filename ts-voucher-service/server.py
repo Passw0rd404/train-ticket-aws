@@ -47,12 +47,10 @@ class GetVoucherHandler(tornado.web.RequestHandler):
             self.write(queryVoucher)
 
     def queryOrderByIdAndType(self,orderId,type):
-        # Because nacos-sdk-python does not support nacos 2.x yet, we still use environment variables
-        # to set order-service url.
         type = int(type)
         #ordinary train
-        order_url = 'http://ts-order-service:12031'
-        order_other_url = 'http://ts-order-other-service:12032'
+        order_url = 'http://ts-order-service.tt-mysql.svc.cluster.local:12031'
+        order_other_url = 'http://ts-order-other-service.tt-mysql.svc.cluster.local:12032'
         if(os.getenv("ORDER_SERVICE_URL") is not None):
             order_url = os.getenv("ORDER_SERVICE_URL")
 

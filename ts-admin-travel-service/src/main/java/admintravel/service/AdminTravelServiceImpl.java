@@ -1,5 +1,7 @@
 package admintravel.service;
 
+
+import edu.fudan.common.util.ServiceUrlUtil;
 import edu.fudan.common.entity.AdminTrip;
 import edu.fudan.common.entity.Route;
 import edu.fudan.common.entity.TrainType;
@@ -9,7 +11,6 @@ import edu.fudan.common.util.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -30,12 +31,10 @@ public class AdminTravelServiceImpl implements AdminTravelService {
 
     @Autowired
     private RestTemplate restTemplate;
-    @Autowired
-    private DiscoveryClient discoveryClient;
     private static final Logger LOGGER = LoggerFactory.getLogger(AdminTravelServiceImpl.class);
 
     private String getServiceUrl(String serviceName) {
-        return "http://" + serviceName;
+        return ServiceUrlUtil.getServiceUrl(serviceName);
     }
 
     @Override

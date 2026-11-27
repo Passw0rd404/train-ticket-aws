@@ -1,5 +1,7 @@
 package rebook.service;
 
+
+import edu.fudan.common.util.ServiceUrlUtil;
 import edu.fudan.common.entity.Trip;
 import edu.fudan.common.entity.TripAllDetail;
 import edu.fudan.common.entity.TripAllDetailInfo;
@@ -11,7 +13,6 @@ import org.apache.tomcat.jni.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -35,13 +36,11 @@ public class RebookServiceImpl implements RebookService {
 
     @Autowired
     private RestTemplate restTemplate;
-    @Autowired
-    private DiscoveryClient discoveryClient;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RebookServiceImpl.class);
 
     private String getServiceUrl(String serviceName) {
-        return "http://" + serviceName;
+        return ServiceUrlUtil.getServiceUrl(serviceName);
     }
 
     @Override
