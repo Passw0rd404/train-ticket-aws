@@ -69,7 +69,9 @@ spec:
       containers:
         - name: {{ .Values.containerName | default $name }}
           image: {{ include "tt-common.image" . | quote }}
-          imagePullPolicy: {{ $i.pullPolicy | default $gi.pullPolicy | default "IfNotPresent" }}
+          {{- $tag := $i.tag | default $gi.tag | default "latest" }}
+          {{- $defaultPull := ternary "Always" "IfNotPresent" (and (not $i.digest) (eq (toString $tag) "latest")) }}
+          imagePullPolicy: {{ $i.pullPolicy | default $gi.pullPolicy | default $defaultPull }}
           {{- with .Values.command }}
           command:
             {{- toYaml . | nindent 12 }}

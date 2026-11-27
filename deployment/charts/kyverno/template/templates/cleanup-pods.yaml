@@ -1,0 +1,44 @@
+{{- $nsList := list -}}
+{{- range .Values.managedNamespaces -}}
+{{- $nsList = append $nsList (printf "'%s'" .) -}}
+{{- end -}}
+{{- $nsCel := printf "[%s]" (join ", " $nsList) -}}
+---
+apiVersion: policies.kyverno.io/v1
+kind: DeletingPolicy
+metadata:
+  name: cleanup-finished-pods
+spec:
+  schedule: "*/30 * * * *"
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+  conditions:
+    - name: managed-namespace
+      expression: "object.metadata.namespace in {{ $nsCel }}"
+    - name: finished-and-old
+      expression: >-
+        object.status.phase in ['Failed', 'Succeeded'] &&
+        timestamp(object.metadata.creationTimestamp) < time.now() - duration('1h') &&
+        !object.metadata.?ownerReferences.orValue([]).exists(r, r.kind == 'Job' && r.name == 'mysql-db-init')
+---
+apiVersion: policies.kyverno.io/v1
+kind: DeletingPolicy
+metadata:
+  name: cleanup-bare-pods
+spec:
+  schedule: "0 * * * *"
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+  conditions:
+    - name: managed-namespace
+      expression: "object.metadata.namespace in {{ $nsCel }}"
+    - name: unowned-and-stale
+      expression: >-
+        size(object.metadata.?ownerReferences.orValue([])) == 0 &&
+        timestamp(object.metadata.creationTimestamp) < time.now() - duration('24h')

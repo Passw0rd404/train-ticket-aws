@@ -1,0 +1,18 @@
+ghcrPrefix: ghcr.io/passw0rd404/
+cosign:
+  issuer: https://token.actions.githubusercontent.com
+  subjectRegExp: "^https://github\\.com/Passw0rd404/train-ticket-aws/\\.github/workflows/build-push\\.yml@.*"
+
+appNamespaces:
+  - tt-mysql
+  - tt-no-secrets
+  - tt-mysql-rabbitmq
+  - tt-notification
+
+managedNamespaces:
+  - tt-mysql
+  - tt-no-secrets
+  - tt-mysql-rabbitmq
+  - tt-notification
+  - cloudflared
+  - traefik

@@ -1,0 +1,62 @@
+---
+apiVersion: policies.kyverno.io/v1
+kind: GeneratingPolicy
+metadata:
+  name: generate-tt-namespace-defaults
+spec:
+  evaluation:
+    generateExisting:
+      enabled: true
+    synchronize:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["namespaces"]
+  matchConditions:
+    - name: tt-namespaces-only
+      expression: "object.metadata.name.startsWith('tt-')"
+  variables:
+    - name: targetNs
+      expression: "object.metadata.name"
+    - name: downstream
+      expression: >-
+        [
+          {
+            "apiVersion": dyn("v1"),
+            "kind": dyn("LimitRange"),
+            "metadata": dyn({
+              "name": "default-limitrange"
+            }),
+            "spec": dyn({
+              "limits": dyn([
+                {
+                  "type": dyn("Container"),
+                  "default": dyn({
+                    "cpu": "500m",
+                    "memory": "2000Mi"
+                  }),
+                  "defaultRequest": dyn({
+                    "cpu": "100m",
+                    "memory": "300Mi"
+                  })
+                }
+              ])
+            })
+          },
+          {
+            "apiVersion": dyn("networking.k8s.io/v1"),
+            "kind": dyn("NetworkPolicy"),
+            "metadata": dyn({
+              "name": "default-deny-ingress"
+            }),
+            "spec": dyn({
+              "podSelector": dyn({}),
+              "policyTypes": dyn(["Ingress"])
+            })
+          }
+        ]
+  generate:
+    - expression: "generator.Apply(variables.targetNs, variables.downstream)"

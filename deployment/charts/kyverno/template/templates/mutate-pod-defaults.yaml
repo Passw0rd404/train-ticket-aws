@@ -1,0 +1,49 @@
+{{- $appList := list -}}
+{{- range .Values.appNamespaces -}}
+{{- $appList = append $appList (printf "'%s'" .) -}}
+{{- end -}}
+{{- $appCel := printf "[%s]" (join ", " $appList) -}}
+---
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: mutate-pod-defaults
+spec:
+  failurePolicy: Fail
+  reinvocationPolicy: IfNeeded
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  matchConditions:
+    - name: app-namespaces-only
+      expression: "object.metadata.namespace in {{ $appCel }}"
+  mutations:
+    - patchType: ApplyConfiguration
+      applyConfiguration:
+        expression: >-
+          Object{
+            spec: Object.spec{
+              automountServiceAccountToken: false,
+              securityContext: Object.spec.securityContext{
+                runAsNonRoot: true,
+                seccompProfile: Object.spec.securityContext.seccompProfile{
+                  type: "RuntimeDefault"
+                }
+              },
+              containers: object.spec.containers.map(c,
+                Object.spec.containers{
+                  name: c.name,
+                  imagePullPolicy: c.image.endsWith(":latest") ? "Always" : c.?imagePullPolicy.orValue("IfNotPresent"),
+                  securityContext: Object.spec.containers.securityContext{
+                    allowPrivilegeEscalation: false,
+                    capabilities: Object.spec.containers.securityContext.capabilities{
+                      drop: ["ALL"]
+                    }
+                  }
+                }
+              )
+            }
+          }

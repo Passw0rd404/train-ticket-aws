@@ -1,0 +1,5 @@
+apiVersion: v2
+name: kyverno-template
+description: Kyverno v1.20 CEL policies (Cosign image verification, validation, mutation, generation and cleanup)
+type: application
+version: 0.1.0

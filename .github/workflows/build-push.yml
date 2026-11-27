@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
     tags: ["v*.*.*"]
+    paths-ignore:
+      - 'ts-*/values.yaml'
+      - 'deployment/**'
+      - 'functions/**'
+      - 'ts-ui-dashboard/**'
+      - '*.md'
   pull_request:
   workflow_dispatch:
 
@@ -559,11 +565,62 @@ jobs:
           }
 
   # ---------------------------------------------------------------------------
+  # Commit the newly pushed sha-<short> image tag to ts-*/values.yaml on main
+  # so Argo CD automatically rolls out verified images.
+  # ---------------------------------------------------------------------------
+  update-values:
+    name: Update Helm image tags
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [java, other]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+
+      - name: Update tag in ts-*/values.yaml
+        run: |
+          SHORT_TAG="sha-${GITHUB_SHA:0:7}"
+          python3 - "$SHORT_TAG" <<'PY'
+          import re, sys
+          from pathlib import Path
+
+          tag = sys.argv[1]
+          for f in sorted(Path(".").glob("ts-*/values.yaml")):
+              text = f.read_text(encoding="utf-8")
+              updated = re.sub(
+                  r'(^image:\s*\n(?:[ \t]+.*\n)*?[ \t]+tag:\s*).*$',
+                  rf'\g<1>{tag}',
+                  text,
+                  flags=re.M,
+              )
+              if updated != text:
+                  f.write_text(updated, encoding="utf-8")
+                  print(f"Updated {f} -> {tag}")
+          PY
+
+      - name: Commit and push updated values
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- 'ts-*/values.yaml'; then
+            echo "No values.yaml changes."
+            exit 0
+          fi
+          git add ts-*/values.yaml
+          git commit -m "chore(gitops): bump service image tags to sha-${GITHUB_SHA:0:7} [skip ci]"
+          git pull --rebase origin main
+          git push origin main
+
+  # ---------------------------------------------------------------------------
   # Single check to require in branch protection (matrix job names are dynamic)
   # ---------------------------------------------------------------------------
   build-status:
     name: Build status
-    needs: [runtime, java, other]
+    needs: [runtime, java, other, update-values]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -572,9 +629,10 @@ jobs:
           RUNTIME: ${{ needs.runtime.result }}
           JAVA: ${{ needs.java.result }}
           OTHER: ${{ needs.other.result }}
+          UPDATE: ${{ needs.update-values.result }}
         run: |
-          echo "runtime=$RUNTIME java=$JAVA other=$OTHER"
-          if [ "$RUNTIME" != "success" ] || [ "$JAVA" != "success" ] || [ "$OTHER" != "success" ]; then
+          echo "runtime=$RUNTIME java=$JAVA other=$OTHER update=$UPDATE"
+          if [ "$RUNTIME" != "success" ] || [ "$JAVA" != "success" ] || [ "$OTHER" != "success" ] || { [ "$UPDATE" != "success" ] && [ "$UPDATE" != "skipped" ]; }; then
             echo "One or more image builds failed."
             exit 1
           fi
