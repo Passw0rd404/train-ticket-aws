@@ -1,7 +1,8 @@
 {{/* env: global.env + env (maps) and global.envRaw + envRaw (raw k8s entries, e.g. valueFrom) */}}
 {{- define "tt-common.env" -}}
 {{- $g := .Values.global | default dict -}}
-{{- $envMap := mergeOverwrite (dict) ($g.env | default dict) (.Values.env | default dict) -}}
+{{- $defaults := dict "OTEL_EXPORTER_OTLP_ENDPOINT" "http://alloy-collector.monitoring.svc.cluster.local:4317" "MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED" "true" -}}
+{{- $envMap := mergeOverwrite $defaults ($g.env | default dict) (.Values.env | default dict) -}}
 {{- $raw := concat ($g.envRaw | default list) (.Values.envRaw | default list) -}}
 {{- if or $envMap $raw -}}
 env:

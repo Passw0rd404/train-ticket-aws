@@ -33,6 +33,10 @@ ports:
   websecure:
     expose:
       default: false
+  metrics:
+    port: 9100
+    exposedPort: 9100
+    protocol: TCP
 
 providers:
   kubernetesGateway:
@@ -54,6 +58,20 @@ gateway:
 ingressRoute:
   dashboard:
     enabled: false
+
+metrics:
+  prometheus:
+    entryPoint: metrics
+    addEntryPointsLabels: true
+    addRoutersLabels: true
+    addServicesLabels: true
+
+tracing:
+  otlp:
+    grpc:
+      enabled: true
+      endpoint: alloy-collector.monitoring.svc.cluster.local:4317
+      insecure: true
 
 logs:
   general:

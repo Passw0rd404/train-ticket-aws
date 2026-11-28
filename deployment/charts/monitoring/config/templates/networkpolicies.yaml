@@ -1,0 +1,67 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-alloy-scrape-exporters
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [node-exporter, kube-state-metrics, mysqld-exporter, sql-exporter, rabbitmq-exporter]
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: alloy-collector
+      ports:
+        - port: 9100
+          protocol: TCP
+        - port: 8080
+          protocol: TCP
+        - port: 9104
+          protocol: TCP
+        - port: 9399
+          protocol: TCP
+        - port: 9419
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-otlp-to-alloy-collector
+spec:
+  podSelector:
+    matchLabels:
+      app: alloy-collector
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+          podSelector:
+            matchLabels:
+              app: traefik
+        {{- range .Values.appNamespaces }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ . }}
+        {{- end }}
+      ports:
+        - port: 4317
+          protocol: TCP
+        - port: 4318
+          protocol: TCP

@@ -24,3 +24,8 @@ httpRoute:
   enabled: true
   paths:
     - value: /api/v1/avatar
+
+readinessProbe:
+  type: tcp
+livenessProbe:
+  type: tcp

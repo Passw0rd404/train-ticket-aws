@@ -35,8 +35,11 @@ module "vpc" {
   enable_dns_support   = true
   enable_dns_hostnames = true
 
-  public_subnet_tags  = { "kubernetes.io/role/elb" = 1 }
-  private_subnet_tags = { "kubernetes.io/role/internal-elb" = 1 }
+  public_subnet_tags = { "kubernetes.io/role/elb" = 1 }
+  private_subnet_tags = {
+    "kubernetes.io/role/internal-elb" = 1
+    "karpenter.sh/discovery"          = var.name
+  }
 }
 
 # One regional NAT gateway for the whole VPC. AWS adds addresses and covers new

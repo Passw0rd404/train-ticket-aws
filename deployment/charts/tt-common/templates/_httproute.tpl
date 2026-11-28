@@ -3,9 +3,10 @@
 {{- if $hr.enabled -}}
 {{- $svc := .Values.service | default dict -}}
 {{- $name := include "tt-common.fullname" . -}}
+{{- $canaryName := include "tt-common.canaryService" . -}}
 {{- $svcPort := $svc.port | default (include "tt-common.port" . | int) -}}
 {{- $parentRefs := $hr.parentRefs | default (list (dict "name" "traefik-gateway" "namespace" "traefik" "sectionName" "web")) -}}
-{{- $hostnames := $hr.hostnames | default (list "api.abdullahsameh.tech") -}}
+{{- $hostnames := $hr.hostnames | default (list "api.abdullahsameh.tech") }}
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -40,7 +41,17 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       backendRefs:
+        {{- if $canaryName }}
         - name: {{ $name }}
           port: {{ $svcPort }}
-{{- end -}}
+          weight: 100
+        - name: {{ $canaryName }}
+          port: {{ $svcPort }}
+          weight: 0
+        {{- else }}
+        - name: {{ $name }}
+          port: {{ $svcPort }}
+        {{- end }}
+{{- end }}
+{{ "" }}
 {{- end -}}

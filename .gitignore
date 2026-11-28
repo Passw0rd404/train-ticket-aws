@@ -34,6 +34,11 @@ ENV/
 env.bak/
 venv.bak/
 
+*.dump
+**.dump
+**.dump/*
+*.dump/*
+
 # Terraform
 **/.terraform/*
 *.tfstate

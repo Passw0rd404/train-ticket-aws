@@ -1,0 +1,5 @@
+apiVersion: v2
+name: argo-rollouts-config
+description: Gateway API RBAC for Argo Rollouts, ClusterAnalysisTemplate and prom-read ExternalSecrets
+type: application
+version: 0.1.0

@@ -32,3 +32,10 @@ httpRoute:
   enabled: true
   paths:
     - value: /office
+
+readinessProbe:
+  type: http
+  path: /office
+livenessProbe:
+  type: http
+  path: /office

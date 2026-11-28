@@ -4,11 +4,31 @@
 {{- $i := .Values.image | default dict -}}
 {{- $sa := .Values.serviceAccount | default dict -}}
 {{- $hpa := .Values.autoscaling | default dict -}}
+{{- $hr := .Values.httpRoute | default dict -}}
 {{- $name := include "tt-common.fullname" . -}}
 {{- $port := include "tt-common.port" . | int -}}
 {{- $portName := .Values.portName | default "http" -}}
 {{- $canary := (.Values.rollout | default dict).canary | default ($g.rollout | default dict).canary | default dict -}}
 {{- $strategy := deepCopy $canary -}}
+{{- if and (not $strategy) $hr.enabled (include "tt-common.canaryService" .) -}}
+{{- $strategy = dict
+  "trafficRouting" (dict "plugins" (dict "argoproj-labs/gatewayAPI" (dict "httpRoute" $name "namespace" .Release.Namespace)))
+  "steps" (list
+    (dict "setWeight" 20)
+    (dict "pause" (dict "duration" "1m"))
+    (dict "analysis" (dict
+      "templates" (list (dict "templateName" "canary-http-health" "clusterScope" true))
+      "args" (list
+        (dict "name" "service" "value" $name)
+        (dict "name" "prom-url" "valueFrom" (dict "secretKeyRef" (dict "name" "grafana-prom-read" "key" "prom_url")))
+        (dict "name" "prom-auth" "valueFrom" (dict "secretKeyRef" (dict "name" "grafana-prom-read" "key" "basic_auth")))
+      )
+    ))
+    (dict "setWeight" 50)
+    (dict "pause" (dict "duration" "1m"))
+  )
+-}}
+{{- end -}}
 {{- with (include "tt-common.canaryService" .) -}}
 {{- $_ := set $strategy "stableService" $name -}}
 {{- $_ := set $strategy "canaryService" . -}}
@@ -69,9 +89,7 @@ spec:
       containers:
         - name: {{ .Values.containerName | default $name }}
           image: {{ include "tt-common.image" . | quote }}
-          {{- $tag := $i.tag | default $gi.tag | default "latest" }}
-          {{- $defaultPull := ternary "Always" "IfNotPresent" (and (not $i.digest) (eq (toString $tag) "latest")) }}
-          imagePullPolicy: {{ $i.pullPolicy | default $gi.pullPolicy | default $defaultPull }}
+          imagePullPolicy: {{ $i.pullPolicy | default $gi.pullPolicy | default (ternary "Always" "IfNotPresent" (and (not $i.digest) (eq (toString ($i.tag | default $gi.tag | default "latest")) "latest"))) }}
           {{- with .Values.command }}
           command:
             {{- toYaml . | nindent 12 }}
@@ -93,15 +111,18 @@ spec:
             {{- with .Values.extraPorts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
-          {{- with (include "tt-common.probe" (dict "cfg" .Values.readinessProbe "port" $port "enabled" true)) }}
+          {{- $readinessDefault := mergeOverwrite (dict "type" "http" "path" "/actuator/health/readiness" "initialDelaySeconds" 10 "periodSeconds" 10 "timeoutSeconds" 5) (.Values.readinessProbe | default dict) }}
+          {{- with (include "tt-common.probe" (dict "cfg" $readinessDefault "port" $port "enabled" true)) }}
           readinessProbe:
             {{- . | nindent 12 }}
           {{- end }}
-          {{- with (include "tt-common.probe" (dict "cfg" .Values.livenessProbe "port" $port "enabled" false)) }}
+          {{- $livenessDefault := mergeOverwrite (dict "type" "http" "path" "/actuator/health/liveness" "initialDelaySeconds" 10 "periodSeconds" 15 "timeoutSeconds" 5) (.Values.livenessProbe | default dict) }}
+          {{- with (include "tt-common.probe" (dict "cfg" $livenessDefault "port" $port "enabled" true)) }}
           livenessProbe:
             {{- . | nindent 12 }}
           {{- end }}
-          {{- with (include "tt-common.probe" (dict "cfg" .Values.startupProbe "port" $port "enabled" false)) }}
+          {{- $startupDefault := mergeOverwrite (dict "type" "tcp" "initialDelaySeconds" 15 "periodSeconds" 10 "timeoutSeconds" 5 "failureThreshold" 30) (.Values.startupProbe | default dict) }}
+          {{- with (include "tt-common.probe" (dict "cfg" $startupDefault "port" $port "enabled" true)) }}
           startupProbe:
             {{- . | nindent 12 }}
           {{- end }}

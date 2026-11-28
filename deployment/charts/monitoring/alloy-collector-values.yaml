@@ -1,0 +1,171 @@
+controller:
+  type: deployment
+  replicas: 1
+  podLabels:
+    app: alloy-collector
+
+service:
+  enabled: true
+  type: ClusterIP
+
+alloy:
+  enableReporting: false
+  listenPort: 12345
+  extraPorts:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+      protocol: TCP
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318
+      protocol: TCP
+  envFrom:
+    - secretRef:
+        name: monitoring-grafana
+  resources:
+    requests:
+      cpu: 150m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 768Mi
+  configMap:
+    create: true
+    content: |-
+      logging {
+        level  = "info"
+        format = "logfmt"
+      }
+
+      // ---- 1. OTLP traces -> spanmetrics + Grafana Cloud Tempo -------------
+      otelcol.receiver.otlp "default" {
+        grpc { endpoint = "0.0.0.0:4317" }
+        http { endpoint = "0.0.0.0:4318" }
+        output {
+          traces = [otelcol.processor.batch.default.input, otelcol.connector.spanmetrics.default.input]
+        }
+      }
+
+      otelcol.processor.batch "default" {
+        output {
+          traces = [otelcol.exporter.otlphttp.grafana_cloud.input]
+        }
+      }
+
+      otelcol.connector.spanmetrics "default" {
+        histogram { explicit {} }
+        output {
+          metrics = [otelcol.exporter.prometheus.spanmetrics.input]
+        }
+      }
+
+      otelcol.exporter.prometheus "spanmetrics" {
+        forward_to = [prometheus.relabel.grafana_cloud_filter.receiver]
+      }
+
+      otelcol.auth.basic "grafana_cloud" {
+        username = sys.env("OTLP_USERNAME")
+        password = sys.env("GRAFANA_API_TOKEN")
+      }
+
+      otelcol.exporter.otlphttp "grafana_cloud" {
+        client {
+          endpoint = sys.env("OTLP_ENDPOINT")
+          auth     = otelcol.auth.basic.grafana_cloud.handler
+        }
+      }
+
+      // ---- 2. Scrape all exporters & cluster targets locally -----------------
+      prometheus.scrape "node_exporter" {
+        targets = [{ __address__ = "node-exporter-prometheus-node-exporter.monitoring.svc.cluster.local:9100" }]
+        forward_to = [prometheus.relabel.grafana_cloud_filter.receiver]
+      }
+
+      prometheus.scrape "kube_state_metrics" {
+        targets = [{ __address__ = "kube-state-metrics.monitoring.svc.cluster.local:8080" }]
+        forward_to = [prometheus.relabel.grafana_cloud_filter.receiver]
+      }
+
+      prometheus.scrape "mysqld_exporter" {
+        targets = [{ __address__ = "mysqld-exporter.monitoring.svc.cluster.local:9104" }]
+        forward_to = [prometheus.relabel.grafana_cloud_filter.receiver]
+      }
+
+      prometheus.scrape "sql_exporter" {
+        targets = [{ __address__ = "sql-exporter.monitoring.svc.cluster.local:9399" }]
+        scrape_interval = "30s"
+        forward_to = [prometheus.relabel.grafana_cloud_filter.receiver]
+      }
+
+      prometheus.scrape "rabbitmq_exporter" {
+        targets = [{ __address__ = "rabbitmq-exporter.monitoring.svc.cluster.local:9419" }]
+        forward_to = [prometheus.relabel.grafana_cloud_filter.receiver]
+      }
+
+      prometheus.scrape "traefik" {
+        targets = [{ __address__ = "traefik.traefik.svc.cluster.local:9100" }]
+        forward_to = [prometheus.relabel.grafana_cloud_filter.receiver]
+      }
+
+      prometheus.scrape "cloudflared" {
+        targets = [{ __address__ = "cloudflared.cloudflared.svc.cluster.local:2000" }]
+        forward_to = [prometheus.relabel.grafana_cloud_filter.receiver]
+      }
+
+      prometheus.scrape "platform_controllers" {
+        targets = [
+          { __address__ = "kyverno-svc-metrics.kyverno.svc.cluster.local:8000", job = "kyverno" },
+          { __address__ = "external-secrets-metrics.external-secrets.svc.cluster.local:8080", job = "external-secrets" },
+          { __address__ = "argo-rollouts-metrics.argo-rollouts.svc.cluster.local:8090", job = "argo-rollouts" },
+        ]
+        forward_to = [prometheus.relabel.grafana_cloud_filter.receiver]
+      }
+
+      // Kubelet / cAdvisor container metrics via Kubernetes nodes
+      discovery.kubernetes "nodes" {
+        role = "node"
+      }
+
+      discovery.relabel "cadvisor" {
+        targets = discovery.kubernetes.nodes.targets
+        rule {
+          target_label = "__address__"
+          replacement  = "kubernetes.default.svc:443"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_node_name"]
+          regex         = "(.+)"
+          target_label  = "__metrics_path__"
+          replacement   = "/api/v1/nodes/${1}/proxy/metrics/cadvisor"
+        }
+      }
+
+      prometheus.scrape "cadvisor" {
+        targets         = discovery.relabel.cadvisor.output
+        scheme          = "https"
+        bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        tls_config { ca_file = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt" }
+        forward_to      = [prometheus.relabel.grafana_cloud_filter.receiver]
+      }
+
+      // ---- 3. Central filter before Grafana Cloud remote_write (10k limit) ---
+      // Edit this single regex anytime to pass or drop more metrics.
+      prometheus.relabel "grafana_cloud_filter" {
+        rule {
+          source_labels = ["__name__"]
+          regex = "^(up|node_cpu_seconds_total|node_memory_MemAvailable_bytes|node_memory_MemTotal_bytes|node_filesystem_avail_bytes|node_filesystem_size_bytes|node_network_receive_bytes_total|node_network_transmit_bytes_total|container_cpu_usage_seconds_total|container_memory_working_set_bytes|kube_pod_status_phase|kube_pod_container_status_restarts_total|kube_pod_container_status_waiting_reason|kube_pod_container_resource_requests|kube_pod_container_resource_limits|kube_deployment_status_replicas_available|kube_node_status_condition|kube_horizontalpodautoscaler_status_current_replicas|traefik_service_requests_total|traefik_service_request_duration_seconds_bucket|cloudflared_tunnel_ha_connections|cloudflared_tunnel_total_requests|cloudflared_tunnel_request_errors|traces_spanmetrics_calls_total|traces_spanmetrics_duration_milliseconds_bucket|mysql_up|mysql_global_status_threads_connected|mysql_global_variables_max_connections|mysql_global_status_queries|mysql_global_status_slow_queries|mysql_info_schema_table_rows|mysql_info_schema_table_size|train_ticket_.*|rabbitmq_up|rabbitmq_queue_messages.*|rabbitmq_queue_consumers|rabbitmq_connections|kyverno_policy_results_total|external_secrets_sync_calls_total|argo_rollout_info)$"
+          action = "keep"
+        }
+        forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+      }
+
+      prometheus.remote_write "grafana_cloud" {
+        endpoint {
+          url = sys.env("PROMETHEUS_URL")
+          basic_auth {
+            username = sys.env("PROMETHEUS_USERNAME")
+            password = sys.env("GRAFANA_API_TOKEN")
+          }
+        }
+      }

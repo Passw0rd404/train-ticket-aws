@@ -1,0 +1,51 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterAnalysisTemplate
+metadata:
+  name: canary-http-health
+spec:
+  args:
+    - name: service
+    - name: prom-url
+    - name: prom-auth
+  metrics:
+    - name: canary-5xx-error-rate
+      interval: 30s
+      count: 2
+      failureLimit: 1
+      successCondition: "result[0] <= 0.05"
+      provider:
+        prometheus:
+          address: "{{ "{{ args.prom-url }}" }}"
+          headers:
+            - key: Authorization
+              value: "Basic {{ "{{ args.prom-auth }}" }}"
+          query: |
+            (sum(rate(traefik_service_requests_total{service=~".*{{ "{{ args.service }}" }}-canary.*",code=~"5.."}[2m])) or vector(0))
+            /
+            clamp_min(sum(rate(traefik_service_requests_total{service=~".*{{ "{{ args.service }}" }}-canary.*"}[2m])) or vector(0), 0.001)
+{{- range .Values.appNamespaces }}
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: grafana-prom-read
+  namespace: {{ . }}
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: grafana-prom-read
+  target:
+    name: grafana-prom-read
+    creationPolicy: Owner
+  data:
+    - secretKey: prom_url
+      remoteRef:
+        key: production/grafana-prom-read
+        property: prom_url
+    - secretKey: basic_auth
+      remoteRef:
+        key: production/grafana-prom-read
+        property: basic_auth
+{{- end }}

@@ -13,4 +13,15 @@ spec:
       app: cloudflared
   policyTypes:
     - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app: alloy-collector
+      ports:
+        - port: 2000
+          protocol: TCP
 {{- end }}

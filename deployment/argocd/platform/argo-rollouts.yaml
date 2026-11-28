@@ -1,4 +1,4 @@
-# Argo Rollouts controller and CRDs. The services' Rollout objects need it. (wave 0)
+# Argo Rollouts controller and CRDs with Gateway API plugin. (wave 0)
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -8,10 +8,17 @@ metadata:
     argocd.argoproj.io/sync-wave: "0"
 spec:
   project: platform
-  source:
-    repoURL: https://argoproj.github.io/argo-helm
-    chart: argo-rollouts
-    targetRevision: 2.41.1
+  sources:
+    - repoURL: https://argoproj.github.io/argo-helm
+      chart: argo-rollouts
+      targetRevision: 2.41.1
+      helm:
+        releaseName: argo-rollouts
+        valueFiles:
+          - $values/deployment/charts/argo-rollouts/values.yaml
+    - repoURL: https://github.com/Passw0rd404/train-ticket-aws.git
+      targetRevision: main
+      ref: values
   destination:
     server: https://kubernetes.default.svc
     namespace: argo-rollouts

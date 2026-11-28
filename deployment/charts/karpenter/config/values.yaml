@@ -1,0 +1,4 @@
+clusterName: train-ticket-dev
+nodeRoleName: train-ticket-dev-karpenter-node
+cpuLimit: "20"
+memoryLimit: 64Gi

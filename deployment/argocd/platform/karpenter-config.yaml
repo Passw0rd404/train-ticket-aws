@@ -1,0 +1,23 @@
+# Karpenter EC2NodeClass and NodePool v1. (wave 2)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: karpenter-config
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: platform
+  source:
+    repoURL: https://github.com/Passw0rd404/train-ticket-aws.git
+    targetRevision: main
+    path: deployment/charts/karpenter/config
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: karpenter
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - SkipDryRunOnMissingResource=true

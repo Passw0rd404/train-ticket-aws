@@ -68,6 +68,7 @@ public class SecurityConfig {
                 .antMatchers("/api/v1/contactservice/**").hasAnyRole("ADMIN", "USER")
                 .antMatchers("/swagger-ui/**", "/v3/api-docs/**", "/webjars/**", "/images/**",
                         "/configuration/**", "/swagger-resources/**", "/v2/**").permitAll()
+                .antMatchers("/actuator/health/**").permitAll()
                 .anyRequest().authenticated()
                 .and()
                 .addFilterBefore(new JWTFilter(), UsernamePasswordAuthenticationFilter.class);

@@ -1,0 +1,5 @@
+appNamespaces:
+  - tt-mysql
+  - tt-no-secrets
+  - tt-mysql-rabbitmq
+  - tt-notification

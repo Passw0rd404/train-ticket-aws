@@ -33,6 +33,12 @@ jobs:
         run: test -f ts-ui-dashboard/static/index.html
 
       # The stamp lets the last step confirm the new build is really being served
+      - name: Write Grafana Faro config
+        env:
+          FARO_COLLECTOR_URL: ${{ vars.FARO_COLLECTOR_URL }}
+        run: |
+          printf 'window.__FARO_COLLECTOR_URL__ = %s;\n' "$(python3 -c 'import json, os; print(json.dumps(os.environ.get("FARO_COLLECTOR_URL", "")))')" > ts-ui-dashboard/static/js/faro-config.js
+
       - name: Stamp version
         id: stamp
         run: |

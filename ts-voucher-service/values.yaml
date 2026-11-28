@@ -32,3 +32,8 @@ httpRoute:
   enabled: true
   paths:
     - value: /getVoucher
+
+readinessProbe:
+  type: tcp
+livenessProbe:
+  type: tcp

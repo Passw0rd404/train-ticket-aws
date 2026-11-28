@@ -1,0 +1,11 @@
+replicas: 1
+podLabels:
+  app: kube-state-metrics
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 64Mi
+  limits:
+    cpu: 150m
+    memory: 256Mi

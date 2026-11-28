@@ -22,3 +22,11 @@ output "node_security_group_id" {
 output "cluster_security_group_id" {
   value = module.eks.cluster_security_group_id
 }
+
+output "karpenter_node_iam_role_name" {
+  value = module.karpenter.node_iam_role_name
+}
+
+output "karpenter_queue_name" {
+  value = module.karpenter.queue_name
+}

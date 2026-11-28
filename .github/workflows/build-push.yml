@@ -222,9 +222,49 @@ jobs:
   # Flow: build locally -> Trivy -> push -> SBOM -> provenance -> sign.
   # The push step rebuilds from the local layer cache, so it is fast.
   # ---------------------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  # Warm the Maven (~/.m2) cache once so 40 parallel Java jobs don't hit 429s
+  # from Maven Central at the same time.
+  # ---------------------------------------------------------------------------
+  maven-cache:
+    name: Warm Maven cache
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up JDK 8 (Temurin)
+        id: jdk
+        continue-on-error: true
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "8"
+          cache: maven
+
+      - name: Set up JDK 8 (Zulu, fallback)
+        if: steps.jdk.outcome == 'failure'
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: "8"
+          cache: maven
+
+      - name: Download & compile all Maven dependencies once
+        run: |
+          for i in 1 2 3; do
+            U=""; [ "$i" -gt 1 ] && U="-U"
+            if mvn -B -ntp $U -Dmaven.artifact.threads=2 -Dmaven.artifact.threads=2 -Dmaven.wagon.http.retryHandler.count=5 \
+                 package -Dmaven.test.skip=true; then
+              exit 0
+            fi
+            sleep $((i * 20))
+          done
+          exit 1
+
   java:
     name: java / ${{ matrix.service }}
-    needs: [discover, runtime]
+    needs: [discover, runtime, maven-cache]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -234,7 +274,7 @@ jobs:
       security-events: write
     strategy:
       fail-fast: false
-      max-parallel: 8
+      max-parallel: 4
       matrix:
         service: ${{ fromJSON(needs.discover.outputs.java) }}
     env:
@@ -276,7 +316,7 @@ jobs:
         run: |
           for i in 1 2 3 4 5; do
             U=""; [ "$i" -gt 1 ] && U="-U"
-            if mvn -B -ntp $U -Dmaven.wagon.http.retryHandler.count=5 \
+            if mvn -B -ntp $U -Dmaven.artifact.threads=2 -Dmaven.wagon.http.retryHandler.count=5 \
                  -pl "$SERVICE" -am package -Dmaven.test.skip=true; then
               exit 0
             fi

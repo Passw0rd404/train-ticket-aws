@@ -10,4 +10,5 @@ metadata:
 spec:
   {{- toYaml $spec | nindent 2 }}
 {{- end }}
+{{ "" }}
 {{- end -}}

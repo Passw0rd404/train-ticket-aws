@@ -55,6 +55,10 @@ module "eks" {
     }
   }
 
+  node_security_group_tags = {
+    "karpenter.sh/discovery" = var.name
+  }
+
   eks_managed_node_groups = {
     default = {
       ami_type       = "AL2023_x86_64_STANDARD"
@@ -63,6 +67,10 @@ module "eks" {
       min_size     = var.node_count
       max_size     = var.node_count
       desired_size = var.node_count
+
+      labels = {
+        "karpenter.sh/controller" = "true"
+      }
 
       block_device_mappings = {
         xvda = {
@@ -99,4 +107,17 @@ resource "aws_iam_role" "ebs_csi" {
 resource "aws_iam_role_policy_attachment" "ebs_csi" {
   role       = aws_iam_role.ebs_csi.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEBSCSIDriverPolicyV2"
+}
+
+module "karpenter" {
+  source  = "terraform-aws-modules/eks/aws//modules/karpenter"
+  version = "~> 21.0"
+
+  cluster_name = module.eks.cluster_name
+  namespace    = "karpenter"
+
+  create_pod_identity_association = true
+  node_iam_role_use_name_prefix   = false
+  node_iam_role_name              = "${var.name}-karpenter-node"
+  queue_name                      = var.name
 }

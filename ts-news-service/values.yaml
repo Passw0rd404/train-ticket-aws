@@ -28,3 +28,10 @@ httpRoute:
     path:
       type: ReplacePrefixMatch
       replacePrefixMatch: /
+
+readinessProbe:
+  type: http
+  path: /
+livenessProbe:
+  type: http
+  path: /

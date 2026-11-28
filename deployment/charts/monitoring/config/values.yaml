@@ -1,0 +1,12 @@
+mysqldExporter:
+  image: prom/mysqld-exporter:v0.16.0
+sqlExporter:
+  image: burningalchemist/sql_exporter:0.18.0
+rabbitmqExporter:
+  image: kbudde/rabbitmq-exporter:v1.0.0-RC19
+
+appNamespaces:
+  - tt-mysql
+  - tt-no-secrets
+  - tt-mysql-rabbitmq
+  - tt-notification

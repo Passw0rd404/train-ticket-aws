@@ -1,0 +1,21 @@
+# Values for the upstream Karpenter OCI Helm chart (public.ecr.aws/karpenter/karpenter).
+# Uses EKS Pod Identity (no serviceAccount annotations needed).
+
+replicas: 1
+
+settings:
+  clusterName: train-ticket-dev
+  interruptionQueue: train-ticket-dev
+
+# Pin Karpenter controller onto the core EKS managed node group so it never runs on nodes it manages
+nodeSelector:
+  karpenter.sh/controller: "true"
+
+controller:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi

@@ -20,6 +20,17 @@ resource "aws_vpc_security_group_ingress_rule" "amqps" {
   description                  = "AMQPS from allowed security group"
 }
 
+resource "aws_vpc_security_group_ingress_rule" "https_metrics" {
+  count = length(var.allowed_security_group_ids)
+
+  security_group_id            = aws_security_group.this.id
+  referenced_security_group_id = var.allowed_security_group_ids[count.index]
+  ip_protocol                  = "tcp"
+  from_port                    = 443
+  to_port                      = 443
+  description                  = "HTTPS management/Prometheus metrics from allowed security group"
+}
+
 resource "random_password" "admin" {
   length  = 32
   special = false

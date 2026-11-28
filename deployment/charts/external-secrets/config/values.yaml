@@ -20,17 +20,25 @@ stores:
   - name: cloudflare
     roleName: tt-eso-cloudflare
     label: cloudflare
+  - name: monitoring
+    roleName: tt-eso-monitoring
+    label: monitoring
+  - name: grafana-prom-read
+    roleName: tt-eso-prom-read
+    label: prom-read
 
 # Application namespaces and which secret types each one may use (labels from `stores`).
 # Rule: a namespace may use a secret only if EVERY service in it uses that secret.
 namespaces:
   - name: tt-mysql-rabbitmq
-    secrets: [mysql, rabbitmq]
+    secrets: [mysql, rabbitmq, prom-read]
   - name: tt-mysql
-    secrets: [mysql]
+    secrets: [mysql, prom-read]
   - name: tt-notification
-    secrets: [mysql, email]
+    secrets: [mysql, email, prom-read]
   - name: tt-no-secrets
-    secrets: []
+    secrets: [prom-read]
   - name: cloudflared
     secrets: [cloudflare]
+  - name: monitoring
+    secrets: [monitoring]

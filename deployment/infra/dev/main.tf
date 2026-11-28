@@ -12,15 +12,17 @@ terraform {
       version = "~> 5.10"
     }
 
+    grafana = {
+      source  = "grafana/grafana"
+      version = "~> 4.20"
+    }
+
     random = {
       source  = "hashicorp/random"
       version = "~> 3.6"
     }
   }
 
-  # The bucket is passed at init time (see the workflows):
-  #   terraform init -backend-config="bucket=tfstate-mern-dev-<account-id>"
-  # Locking uses a lock file in the bucket, no DynamoDB table.
   backend "s3" {
     key          = "dev/terraform.tfstate"
     region       = "eu-central-1"
@@ -41,8 +43,18 @@ provider "aws" {
   }
 }
 
-# Reads CLOUDFLARE_API_TOKEN from the environment
 provider "cloudflare" {}
+
+provider "grafana" {
+  alias                     = "cloud"
+  cloud_access_policy_token = var.grafana_cloud_access_policy_token
+}
+
+provider "grafana" {
+  alias = "stack"
+  url   = module.grafana.stack_url
+  auth  = module.grafana.stack_sa_token
+}
 
 locals {
   name = "${var.project}-${var.env}"
@@ -81,7 +93,6 @@ module "rds" {
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.database_subnet_ids
 
-  # Pods connect through the node network interfaces
   allowed_security_group_ids = [module.eks.node_security_group_id]
 
   engine_version        = var.db_engine_version
@@ -123,6 +134,31 @@ module "cloudflare" {
   traefik_service_url = var.traefik_service_url
 }
 
+module "grafana" {
+  source = "../modules/grafana"
+
+  providers = {
+    grafana.cloud = grafana.cloud
+    grafana.stack = grafana.stack
+  }
+
+  name            = local.name
+  env             = var.env
+  stack_slug      = var.grafana_stack_slug
+  frontend_origin = "https://${var.pages_domain}"
+  alert_email     = var.alert_email
+}
+
+module "cloudwatch" {
+  source = "../modules/cloudwatch"
+
+  name           = local.name
+  rds_identifier = module.rds.identifier
+  mq_broker_name = "${local.name}-rabbitmq"
+  nat_gateway_id = module.vpc.nat_gateway_id
+  alert_email    = var.alert_email
+}
+
 module "argocd" {
   count  = var.enable_argocd ? 1 : 0
   source = "../modules/argocd"
@@ -147,15 +183,25 @@ module "app_secrets" {
   mysql_admin_user     = module.rds.master_username
   mysql_admin_password = module.rds.master_password
   mysql_user           = var.db_app_user
+  mysql_readonly_user  = var.db_readonly_user
 
   rabbitmq_host     = module.mq.host
   rabbitmq_user     = module.mq.admin_username
   rabbitmq_password = module.mq.admin_password
 
   cloudflare_tunnel_token = module.cloudflare.tunnel_token
+
+  grafana_prometheus_url      = module.grafana.prometheus_remote_write_url
+  grafana_prometheus_username = module.grafana.prometheus_username
+  grafana_loki_url            = module.grafana.loki_push_url
+  grafana_loki_username       = module.grafana.loki_username
+  grafana_otlp_endpoint       = module.grafana.otlp_endpoint
+  grafana_otlp_username       = module.grafana.otlp_username
+  grafana_alloy_token         = module.grafana.alloy_token
+  grafana_prom_query_url      = module.grafana.prometheus_query_url
+  grafana_prom_read_token     = module.grafana.prom_read_token
 }
 
-# EKS Pod Identity controller role + 4 least-privilege roles assumed via sts:AssumeRole
 module "eso" {
   source = "../modules/eso"
 
@@ -175,6 +221,16 @@ module "eso" {
     }
     "tt-eso-cloudflare" = {
       secret_arns = [module.app_secrets.cloudflare_arn]
+    }
+    "tt-eso-prom-read" = {
+      secret_arns = [module.app_secrets.grafana_prom_read_arn]
+    }
+    "tt-eso-monitoring" = {
+      secret_arns = [
+        module.app_secrets.mysql_readonly_arn,
+        module.app_secrets.rabbitmq_arn,
+        module.app_secrets.grafana_arn,
+      ]
     }
   }
 }

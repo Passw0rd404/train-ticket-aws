@@ -1,0 +1,247 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysqld-exporter
+  labels:
+    app: mysqld-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysqld-exporter
+  template:
+    metadata:
+      labels:
+        app: mysqld-exporter
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+      containers:
+        - name: mysqld-exporter
+          image: {{ .Values.mysqldExporter.image | quote }}
+          args:
+            - --config.my-cnf=/etc/mysql/my.cnf
+            - --collect.info_schema.tables
+            - --collect.info_schema.innodb_metrics
+          ports:
+            - name: metrics
+              containerPort: 9104
+          volumeMounts:
+            - name: my-cnf
+              mountPath: /etc/mysql
+              readOnly: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests: { cpu: 25m, memory: 32Mi }
+            limits: { cpu: 100m, memory: 64Mi }
+      volumes:
+        - name: my-cnf
+          secret:
+            secretName: monitoring-mysql-readonly
+            items:
+              - key: my.cnf
+                path: my.cnf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysqld-exporter
+spec:
+  selector:
+    app: mysqld-exporter
+  ports:
+    - name: metrics
+      port: 9104
+      targetPort: metrics
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sql-exporter-config
+data:
+  sql_exporter.yml: |
+    global:
+      scrape_timeout: 10s
+      min_interval: 15s
+    target:
+      data_source_name: "${SQLEXPORTER_DSN}"
+      collectors: [train_ticket_business]
+    collectors:
+      - collector_name: train_ticket_business
+        metrics:
+          - metric_name: train_ticket_users_total
+            type: gauge
+            help: Total registered Train Ticket users
+            values: [cnt]
+            query: "SELECT COUNT(*) AS cnt FROM `user`"
+          - metric_name: train_ticket_auth_users_total
+            type: gauge
+            help: Total auth accounts
+            values: [cnt]
+            query: "SELECT COUNT(*) AS cnt FROM auth_user"
+          - metric_name: train_ticket_orders_total
+            type: gauge
+            help: Total high-speed orders by status
+            key_labels: [status]
+            values: [cnt]
+            query: "SELECT CAST(status AS CHAR) AS status, COUNT(*) AS cnt FROM orders GROUP BY status"
+          - metric_name: train_ticket_orders_other_total
+            type: gauge
+            help: Total ordinary orders by status
+            key_labels: [status]
+            values: [cnt]
+            query: "SELECT CAST(status AS CHAR) AS status, COUNT(*) AS cnt FROM orders_other GROUP BY status"
+          - metric_name: train_ticket_vouchers_total
+            type: gauge
+            help: Total issued vouchers
+            values: [cnt]
+            query: "SELECT COUNT(*) AS cnt FROM voucher"
+          - metric_name: train_ticket_wait_orders_total
+            type: gauge
+            help: Wait-list orders by status
+            key_labels: [status]
+            values: [cnt]
+            query: "SELECT CAST(status AS CHAR) AS status, COUNT(*) AS cnt FROM wait_list_order GROUP BY status"
+          - metric_name: train_ticket_routes_total
+            type: gauge
+            help: Total configured train routes
+            values: [cnt]
+            query: "SELECT COUNT(*) AS cnt FROM route"
+          - metric_name: train_ticket_stations_total
+            type: gauge
+            help: Total stations
+            values: [cnt]
+            query: "SELECT COUNT(*) AS cnt FROM station"
+          - metric_name: train_ticket_trips_total
+            type: gauge
+            help: Total scheduled trips (high-speed + ordinary)
+            values: [cnt]
+            query: "SELECT (SELECT COUNT(*) FROM trip) + (SELECT COUNT(*) FROM trip2) AS cnt"
+          - metric_name: train_ticket_payments_total
+            type: gauge
+            help: Total inside + outside payment records
+            values: [cnt]
+            query: "SELECT (SELECT COUNT(*) FROM inside_payment) + (SELECT COUNT(*) FROM payment) AS cnt"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sql-exporter
+  labels:
+    app: sql-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sql-exporter
+  template:
+    metadata:
+      labels:
+        app: sql-exporter
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+      containers:
+        - name: sql-exporter
+          image: {{ .Values.sqlExporter.image | quote }}
+          args:
+            - -config.file=/etc/sql_exporter/sql_exporter.yml
+          env:
+            - name: SQLEXPORTER_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: monitoring-mysql-readonly
+                  key: SQLEXPORTER_DSN
+          ports:
+            - name: metrics
+              containerPort: 9399
+          volumeMounts:
+            - name: config
+              mountPath: /etc/sql_exporter
+              readOnly: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests: { cpu: 25m, memory: 32Mi }
+            limits: { cpu: 100m, memory: 64Mi }
+      volumes:
+        - name: config
+          configMap:
+            name: sql-exporter-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sql-exporter
+spec:
+  selector:
+    app: sql-exporter
+  ports:
+    - name: metrics
+      port: 9399
+      targetPort: metrics
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq-exporter
+  labels:
+    app: rabbitmq-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rabbitmq-exporter
+  template:
+    metadata:
+      labels:
+        app: rabbitmq-exporter
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+      containers:
+        - name: rabbitmq-exporter
+          image: {{ .Values.rabbitmqExporter.image | quote }}
+          envFrom:
+            - secretRef:
+                name: monitoring-rabbitmq
+          ports:
+            - name: metrics
+              containerPort: 9419
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests: { cpu: 25m, memory: 32Mi }
+            limits: { cpu: 100m, memory: 64Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq-exporter
+spec:
+  selector:
+    app: rabbitmq-exporter
+  ports:
+    - name: metrics
+      port: 9419
+      targetPort: metrics

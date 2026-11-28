@@ -41,3 +41,12 @@ output "cloudflare_pages_url" {
 output "cloudflare_api_url" {
   value = "https://${var.api_hostname}"
 }
+
+output "faro_collector_url" {
+  description = "Put this value in GitHub repository variable FARO_COLLECTOR_URL for Cloudflare Pages"
+  value       = module.grafana.faro_collector_url
+}
+
+output "cloudwatch_alarms" {
+  value = module.cloudwatch.alarm_names
+}

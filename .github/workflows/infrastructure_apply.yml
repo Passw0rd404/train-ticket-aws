@@ -21,6 +21,7 @@ env:
   AWS_REGION: 'eu-central-1'
   CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
   TF_VAR_cloudflare_account_id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+  TF_VAR_grafana_cloud_access_policy_token: ${{ secrets.GRAFANA_CLOUD_ACCESS_POLICY_TOKEN }}
 
 jobs:
   terraform:

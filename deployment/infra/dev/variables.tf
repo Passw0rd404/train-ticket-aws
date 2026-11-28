@@ -203,3 +203,24 @@ variable "argocd_admin_email" {
   type    = string
   default = "mern01555206319@gmail.com"
 }
+
+variable "db_readonly_user" {
+  type    = string
+  default = "tsmonitor"
+}
+
+# Grafana Cloud (token passed via TF_VAR_grafana_cloud_access_policy_token in CI)
+variable "grafana_cloud_access_policy_token" {
+  type      = string
+  sensitive = true
+}
+
+variable "grafana_stack_slug" {
+  type = string
+}
+
+variable "alert_email" {
+  description = "Email address for Grafana and CloudWatch SNS alerts"
+  type        = string
+  default     = "mern01555206319@gmail.com"
+}
