@@ -1,8 +1,8 @@
-# Kyverno CEL policies: Cosign verification, Pod security, Mutation, Generation and Cleanup. (wave 2)
+# Traefik GatewayClass, Gateway and shared Middlewares. (wave 2)
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: kyverno-template
+  name: traefik-config
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "2"
@@ -11,10 +11,10 @@ spec:
   source:
     repoURL: https://github.com/Passw0rd404/train-ticket-aws.git
     targetRevision: main
-    path: deployment/charts/kyverno/template
+    path: deployment/charts/traefik/config
   destination:
     server: https://kubernetes.default.svc
-    namespace: kyverno
+    namespace: traefik
   syncPolicy:
     automated:
       prune: true

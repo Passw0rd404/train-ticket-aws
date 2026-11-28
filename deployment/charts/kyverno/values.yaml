@@ -2,7 +2,7 @@
 #   repo:      https://kyverno.github.io/kyverno/
 #   chart:     kyverno
 #   namespace: kyverno
-# The CEL policies live in ./template (a small Helm chart).
+# The CEL policies live in ./config (a small Helm chart).
 
 crds:
   install: true

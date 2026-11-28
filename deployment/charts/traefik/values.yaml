@@ -2,7 +2,7 @@
 #   repo:      https://traefik.github.io/charts
 #   chart:     traefik
 #   namespace: traefik
-# The GatewayClass, Gateway and shared Middlewares live in ./template (a small Helm chart).
+# The GatewayClass, Gateway and shared Middlewares live in ./config (a small Helm chart).
 
 global:
   checkNewVersion: false
