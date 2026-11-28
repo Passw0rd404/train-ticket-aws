@@ -4,7 +4,7 @@ namespace: tt-mysql
 
 image:
   registry: ghcr.io/passw0rd404
-  tag: latest
+  tag: sha-2b2f880
 
 resources:
   requests:

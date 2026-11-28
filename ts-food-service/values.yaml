@@ -4,7 +4,7 @@ namespace: tt-mysql-rabbitmq
 
 image:
   registry: ghcr.io/passw0rd404
-  tag: latest
+  tag: sha-2b2f880
 
 env:
   SPRING_MAIN_ALLOW_CIRCULAR_REFERENCES: "true"
